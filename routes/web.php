@@ -15,6 +15,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\UserManagementController;
 use Illuminate\Foundation\Auth\EmailVerificationRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -35,18 +36,33 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/email/verify', function () {
+    Route::get('/email/verify', function (Request $request) {
+        Log::channel('security')->info('security.email.verification.notice.viewed', [
+            'user_id' => $request->user()?->id,
+            'ip' => $request->ip(),
+        ]);
+
         return view('auth.verify-email');
     })->name('verification.notice');
 
     Route::get('/email/verify/{id}/{hash}', function (EmailVerificationRequest $request) {
         $request->fulfill();
 
+        Log::channel('security')->info('security.email.verification.fulfilled', [
+            'user_id' => $request->user()?->id,
+            'ip' => $request->ip(),
+        ]);
+
         return redirect()->route('dashboard')->with('success', 'Email verified successfully.');
     })->middleware(['signed', 'throttle:6,1'])->name('verification.verify');
 
     Route::post('/email/verification-notification', function (Request $request) {
         $request->user()->sendEmailVerificationNotification();
+
+        Log::channel('security')->info('security.email.verification.sent', [
+            'user_id' => $request->user()?->id,
+            'ip' => $request->ip(),
+        ]);
 
         return back()->with('status', 'Verification link sent.');
     })->middleware('throttle:6,1')->name('verification.send');

@@ -55,6 +55,16 @@ class EnsurePasswordIsChanged
             return $next($request);
         }
 
+        Log::channel('security')->info('security.forced_password_change.triggered', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'route' => optional($request->route())->getName(),
+            'path' => $request->path(),
+            'ip' => $request->ip(),
+            'user_agent' => (string) $request->userAgent(),
+            'source' => 'middleware.password.changed',
+        ]);
+
         return redirect()->route('password.force.change')
             ->with('info', 'You must change your temporary password before accessing the system.');
     }

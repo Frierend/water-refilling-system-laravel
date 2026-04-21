@@ -62,6 +62,14 @@ class DeliveryController extends Controller
         
         // Check if this delivery is assigned to current user if they are delivery personnel
         if (auth()->user()->isDelivery() && $order->delivery_user_id != auth()->id()) {
+            Log::channel('security')->warning('security.authorization.denied', [
+                'user_id' => auth()->id(),
+                'action' => 'delivery.view',
+                'delivery_id' => $order->id,
+                'delivery_user_id' => $order->delivery_user_id,
+                'ip' => request()->ip(),
+            ]);
+
             abort(403, 'You are not authorized to view this delivery.');
         }
         
@@ -83,6 +91,14 @@ class DeliveryController extends Controller
         
         // Check if this delivery is assigned to current user if they are delivery personnel
         if (auth()->user()->isDelivery() && $order->delivery_user_id != auth()->id()) {
+            Log::channel('security')->warning('security.authorization.denied', [
+                'user_id' => auth()->id(),
+                'action' => 'delivery.complete',
+                'delivery_id' => $order->id,
+                'delivery_user_id' => $order->delivery_user_id,
+                'ip' => $request->ip(),
+            ]);
+
             abort(403, 'You are not authorized to update this delivery.');
         }
         

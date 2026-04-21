@@ -43,6 +43,15 @@ class ForcedPasswordChangeController extends Controller
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
+            Log::channel('security')->warning('security.account.lifecycle.expiry.locked', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'expired_at' => $user->temp_password_expires_at?->toDateTimeString(),
+                'ip' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
+                'source' => 'forced_password_change.show',
+            ]);
+
             return redirect()->route('login')->withErrors([
                 'email' => $user->lifecycleLockMessage(),
             ]);
@@ -78,6 +87,15 @@ class ForcedPasswordChangeController extends Controller
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
+            Log::channel('security')->warning('security.account.lifecycle.expiry.locked', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'expired_at' => $user->temp_password_expires_at?->toDateTimeString(),
+                'ip' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
+                'source' => 'forced_password_change.update',
+            ]);
+
             return redirect()->route('login')->withErrors([
                 'email' => $user->lifecycleLockMessage(),
             ]);
@@ -91,6 +109,14 @@ class ForcedPasswordChangeController extends Controller
         ]);
 
         if (Hash::check($validated['password'], (string) $user->password)) {
+            Log::channel('security')->warning('security.forced_password_change.failed', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'reason' => 'new_password_matches_current',
+                'ip' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
+            ]);
+
             return back()->withErrors([
                 'password' => 'Please choose a different password.',
             ]);
