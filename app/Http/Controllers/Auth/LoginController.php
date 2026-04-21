@@ -89,7 +89,7 @@ class LoginController extends Controller
                     $request->session()->regenerateToken();
 
                     return back()->withErrors([
-                        'email' => 'Your temporary password has expired. Please contact the owner for assistance.',
+                        'email' => $this->temporaryPasswordExpiredMessage(),
                     ])->onlyInput('email');
                 }
 
@@ -183,5 +183,18 @@ class LoginController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/');
+    }
+
+    private function temporaryPasswordExpiredMessage(): string
+    {
+        $ownerName = trim((string) config('security.owner.name', 'owner'));
+        $ownerName = $ownerName !== '' ? $ownerName : 'owner';
+
+        $ownerEmail = trim((string) config('security.owner.email', ''));
+        if ($ownerEmail !== '') {
+            return sprintf('Your temporary password has expired. Please contact %s at %s for assistance.', $ownerName, $ownerEmail);
+        }
+
+        return sprintf('Your temporary password has expired. Please contact the %s for assistance.', $ownerName);
     }
 }

@@ -521,6 +521,55 @@ Not implemented in verified code:
 
 ---
 
+## 15) Local Owner Identity + SMTP Setup (Gmail App Password)
+
+This section is the canonical local setup for account lifecycle and SMTP email flows (verification + password reset), verified against:
+- `config/security.php` (`OWNER_EMAIL`, optional `OWNER_NAME`)
+- `config/mail.php` (`MAIL_*`, fallback usage with owner identity)
+- Auth flows that surface owner-contact guidance when temporary passwords expire
+
+### 15.1 `.env` keys to set locally
+
+Edit your local `.env` (not `.env.example`) and set:
+
+```dotenv
+OWNER_EMAIL=owner@example.com
+OWNER_NAME="Mi-Gail Owner"
+
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your_gmail_address@gmail.com
+MAIL_PASSWORD=your_16_char_gmail_app_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=your_gmail_address@gmail.com
+MAIL_FROM_NAME="Mi-Gail Water System"
+```
+
+Notes:
+- `OWNER_NAME` is optional; leave blank if you only want email-based owner contact.
+- Keep placeholder values in `.env.example`; never commit real credentials.
+
+### 15.2 Step-by-step Gmail app-password setup (local development)
+
+1. Sign in to the Gmail account you will use as SMTP sender (`MAIL_USERNAME` / `MAIL_FROM_ADDRESS`).
+2. Enable Google 2-Step Verification on that account (required before app passwords are available).
+3. Open **Google Account → Security → App passwords**.
+4. Create an app password (choose **Mail** + your device, or a custom label like `Mi-Gail Local SMTP`).
+5. Copy the generated 16-character password immediately (Google only shows it once).
+6. Paste that value into `MAIL_PASSWORD` in your local `.env`.
+7. Set `MAIL_ENCRYPTION=tls` and `MAIL_PORT=587` for Gmail SMTP submission.
+8. Run `php artisan config:clear` after editing `.env` so Laravel reloads settings.
+9. Test with email verification or forgot-password flow from a local account.
+
+### 15.3 Security guardrails
+
+- Do not commit `.env`.
+- Do not replace placeholders in `.env.example` with real secrets.
+- Rotate the Gmail app password immediately if it is exposed.
+
+---
+
 ## 15) Consolidation / Archival Guidance for Legacy Docs
 
 Recommended post-consolidation document status:
@@ -547,4 +596,3 @@ Re-verified from code:
 - Security-focused test presence and scope
 
 Where conflicts existed, this file preserved code-verified behavior and marked discrepancies.
-
