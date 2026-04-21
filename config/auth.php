@@ -101,6 +101,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Login Lockout Controls
+    |--------------------------------------------------------------------------
+    |
+    | These options define account-based lockout behavior for failed login
+    | attempts. When the maximum attempts are reached, the account will be
+    | temporarily locked for the configured number of minutes.
+    |
+    */
+
+    'login_lockout' => [
+        'max_attempts' => (int) env('LOGIN_MAX_ATTEMPTS', 5),
+        'lock_minutes' => (int) env('LOGIN_LOCK_MINUTES', 5),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Password Confirmation Timeout
     |--------------------------------------------------------------------------
     |

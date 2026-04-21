@@ -33,6 +33,18 @@ class User extends Authenticatable
     ];
 
     /**
+     * The attributes that should be cast.
+     *
+     * @var array<string, string>
+     */
+    protected $casts = [
+        'locked_until' => 'datetime',
+        'must_change_password' => 'boolean',
+        'password_changed_at' => 'datetime',
+        'temp_password_expires_at' => 'datetime',
+    ];
+
+    /**
      * Check if user is owner/manager
      * 
      * @return bool
@@ -40,6 +52,16 @@ class User extends Authenticatable
     public function isOwner()
     {
         return $this->role === 'owner';
+    }
+
+    /**
+     * Compatibility helper for legacy checks.
+     *
+     * In this system, owner is the admin authority.
+     */
+    public function isAdmin()
+    {
+        return $this->isOwner();
     }
 
     /**

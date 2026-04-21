@@ -1,6 +1,7 @@
 <?php
 // routes/web.php
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Auth\ForcedPasswordChangeController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\CustomerController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\DeliveryController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\UserManagementController;
 
 // Authentication Routes
 Route::get('/', function () {
@@ -19,7 +21,21 @@ Route::post('/login', [LoginController::class, 'login']);
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
 
 // Protected Routes
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'password.changed'])->group(function () {
+    // Forced password-change flow (Batch C skeleton)
+    Route::get('/force-password-change', [ForcedPasswordChangeController::class, 'show'])
+        ->name('password.force.change');
+    Route::post('/force-password-change', [ForcedPasswordChangeController::class, 'update'])
+        ->name('password.force.update');
+
+    // Owner-only user management
+    Route::get('/users/create', [UserManagementController::class, 'create'])
+        ->middleware('role:owner')
+        ->name('users.create');
+    Route::post('/users', [UserManagementController::class, 'store'])
+        ->middleware('role:owner')
+        ->name('users.store');
+
     // Dashboard
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     

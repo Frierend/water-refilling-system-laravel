@@ -60,7 +60,14 @@ Based on the documentation, the system objectives are to:
 - `guzzlehttp/guzzle`
 
 ### Testing
-- PHPUnit 10 (currently basic example tests only)
+- PHPUnit 10
+- Security feature tests currently cover:
+  - login lockout
+  - owner-only user creation with temporary password flow
+  - forced password change enforcement/completion
+  - report input validation and export safety
+- Latest verified run (**April 21, 2026**):
+  - `php artisan test` -> `29` tests, `158` assertions
 
 ## How the Real Business Process Was Digitized
 The notebook-based workflow was translated into system modules:
@@ -125,6 +132,35 @@ The notebook-based workflow was translated into system modules:
   - helper -> order creation page
   - others -> dashboard
 - Protected routes under `auth` middleware
+- Login attempts + temporary lockout (`failed_attempts`, `locked_until`)
+- Forced password change gate via `EnsurePasswordIsChanged` middleware
+- Expired temporary-password fallback: safe contact-administrator message
+
+### Account Lifecycle Security (Phase 2.5)
+- Owner-only user creation (`role:owner` route protection)
+- Assignable roles limited to `delivery` and `helper`
+- Server-generated temporary password (displayed once via flash/session)
+- Password stored as hash only (no plaintext DB storage)
+- First-login password change enforcement for flagged users
+- Shared complexity policy from `config/security.php`:
+  - minimum length
+  - uppercase
+  - lowercase
+  - number
+  - special character
+- Temporary password non-reuse enforced (new password cannot match current stored hash)
+- Lifecycle tracking fields:
+  - `must_change_password`
+  - `password_changed_at`
+  - `temp_password_expires_at`
+- Audit events for auth/account lifecycle:
+  - `auth.login.failed`
+  - `auth.account.locked`
+  - `auth.login.locked_blocked`
+  - `security.user.created_by_owner`
+  - `security.temporary_password.issued`
+  - `security.forced_password_change.triggered`
+  - `security.password.changed.success`
 
 ### Order and Payment Logic
 - Delivery fee and water pricing are computed in backend
@@ -252,7 +288,7 @@ For fresh local seeded data, default users include:
 - `delivery@migail.com` / `password`
 - `helper@migail.com` / `password`
 
-## Security Runbook (Phase 2)
+## Security Runbook (Phase 2.5)
 Use this quick checklist before release or major handoff:
 1. Run dependency audit:
    ```bash
@@ -267,7 +303,7 @@ Use this quick checklist before release or major handoff:
    composer audit:phase2
    ```
 4. Verify audit log output:
-   - check `storage/logs/audit-*.log` for structured events (orders, inventory, deliveries)
+   - check `storage/logs/audit-*.log` for structured events (orders, inventory, deliveries, authentication, account lifecycle)
 5. Confirm CORS settings in `.env`:
    - `CORS_ALLOWED_ORIGINS`
    - `CORS_ALLOWED_METHODS`
@@ -277,18 +313,28 @@ Use this quick checklist before release or major handoff:
    - `X-Content-Type-Options`
    - `Referrer-Policy`
    - `Permissions-Policy`
+7. Validate account-lifecycle enforcement:
+   - owner can create only `delivery/helper` users
+   - temporary password appears once after creation
+   - flagged users are redirected to forced-change page after login
+   - weak or reused password is rejected in forced-change flow
 
 For disclosure/reporting process, see `SECURITY.md`.
 
 ## Documentation vs Code Notes (Important)
-The following are **described in documentation but may not be fully implemented** in the current codebase:
+The following are **deferred or not fully implemented** in the current codebase:
 - Administration module features (full user admin, backup/config suite)
 - Full Excel export implementation (CSV and selected PDF exports are implemented)
 - Some delivery workflow details from manual (for example richer status flow)
 - Login by "username" wording in documentation (code uses email/password validation)
-- `admin` role behavior (controllers/middleware reference admin, but current `users.role` enum does not include `admin`)
+- Separate `admin` role model (owner is currently treated as admin authority)
 - Customer extra fields in docs/manual (for example email) not present in current customer schema
 - Empty container stock flow is partially coded but not fully aligned with current inventory item type enum
+- Forgot-password flow (`/forgot-password`, `/reset-password`)
+- Email verification enforcement
+- Google reCAPTCHA v2 login check
+- MFA
+- Audit log-channel split (`security` vs `system`)
 
 Additional implementation gaps observed in code:
 - `orders.pay` is referenced in a view but no matching route exists
@@ -297,11 +343,15 @@ Additional implementation gaps observed in code:
 
 ## Future Improvements
 1. Add true Excel (`.xlsx`) exports (currently CSV + selected PDF are implemented).
-2. Resolve role model consistency (`owner/delivery/helper/admin`) across migration, model, middleware, and UI.
-3. Implement or remove undefined routes/actions (`orders.pay`, `orders.destroy`) for stability.
-4. Align database schema with forms and documented fields (for example customer notes/email if required).
-5. Fully align empty-container inventory workflow with schema and business rules.
-6. Expand delivery workflow states and assignment controls to match documented operations.
-7. Add comprehensive automated tests for sales, delivery, inventory, and reporting flows.
-8. Add audit logs and stricter validation for high-impact inventory and cancellation actions.
+2. Implement forgot-password flow with Laravel broker + SMTP.
+3. Implement email verification and enforcement rollout.
+4. Add Google reCAPTCHA v2 on login.
+5. Add MFA.
+6. Split logging into dedicated `security` and `system` channels.
+7. Resolve role model consistency (`owner/delivery/helper/admin`) across migration, model, middleware, and UI.
+8. Implement or remove undefined routes/actions (`orders.pay`, `orders.destroy`) for stability.
+9. Align database schema with forms and documented fields (for example customer notes/email if required).
+10. Fully align empty-container inventory workflow with schema and business rules.
+11. Expand delivery workflow states and assignment controls to match documented operations.
+12. Add broader integration coverage for MySQL/MariaDB-specific behavior.
 
