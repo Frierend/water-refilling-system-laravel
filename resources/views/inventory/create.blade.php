@@ -52,6 +52,7 @@
                                 <option value="">Select item type</option>
                                 <option value="water" {{ old('type') == 'water' ? 'selected' : '' }}>Water</option>
                                 <option value="container" {{ old('type') == 'container' ? 'selected' : '' }}>Container</option>
+                                <option value="empty" {{ old('type') == 'empty' ? 'selected' : '' }}>Empty</option>
                                 <option value="cap" {{ old('type') == 'cap' ? 'selected' : '' }}>Cap</option>
                                 <option value="seal" {{ old('type') == 'seal' ? 'selected' : '' }}>Seal</option>
                                 <option value="other" {{ old('type') == 'other' ? 'selected' : '' }}>Other</option>

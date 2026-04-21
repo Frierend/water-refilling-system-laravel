@@ -278,6 +278,18 @@
                         <option value="monthly" {{ $granularity == 'monthly' ? 'selected' : '' }}>Monthly Summary</option>
                     </select>
                 </div>
+
+                @php
+                    $activeDriverName = 'All Drivers';
+                    if (($filterDriver ?? 'all') !== 'all') {
+                        $activeDriverName = optional(($drivers ?? collect())->firstWhere('id', (int) $filterDriver))->name ?? 'All Drivers';
+                    }
+                @endphp
+                <div class="alert alert-light border py-2 px-3 small mb-0">
+                    Active filters:
+                    <strong>Status: {{ ucfirst($filterStatus ?? 'all') }}</strong>,
+                    <strong>Driver: {{ $activeDriverName }}</strong>
+                </div>
             </div>
         </div>
     </div>

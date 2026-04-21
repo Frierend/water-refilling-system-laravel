@@ -6,6 +6,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class InventoryController extends Controller
 {
@@ -71,7 +72,7 @@ class InventoryController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'type' => 'required|string|in:water,container,cap,seal,other',
+            'type' => 'required|string|in:water,container,empty,cap,seal,other',
             'description' => 'nullable|string',
             'quantity' => 'required|integer|min:0',
             'threshold' => 'required|integer|min:1',
@@ -95,6 +96,14 @@ class InventoryController extends Controller
             }
             
             DB::commit();
+
+            Log::channel('audit')->info('inventory.item.created', [
+                'actor_id' => auth()->id(),
+                'inventory_item_id' => $item->id,
+                'type' => $item->type,
+                'quantity' => $item->quantity,
+                'threshold' => $item->threshold,
+            ]);
             
             return redirect()->route('inventory.index')
                 ->with('success', 'Inventory item created successfully.');
@@ -158,7 +167,7 @@ class InventoryController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'type' => 'required|string|in:water,container,cap,seal,other',
+            'type' => 'required|string|in:water,container,empty,cap,seal,other',
             'description' => 'nullable|string',
             'threshold' => 'required|integer|min:1',
         ]);
@@ -192,6 +201,12 @@ class InventoryController extends Controller
         }
         
         $item->delete();
+
+        Log::channel('audit')->info('inventory.item.deleted', [
+            'actor_id' => auth()->id(),
+            'inventory_item_id' => $item->id,
+            'type' => $item->type,
+        ]);
         
         return redirect()->route('inventory.index')
             ->with('success', 'Inventory item deleted successfully.');
@@ -240,6 +255,7 @@ class InventoryController extends Controller
             
             // Check if removing too much
             if ($quantityChange < 0 && abs($quantityChange) > $item->quantity) {
+                DB::rollBack();
                 return back()->withErrors(['quantity' => 'Cannot remove more than current quantity.'])->withInput();
             }
             
@@ -257,6 +273,14 @@ class InventoryController extends Controller
             $item->save();
             
             DB::commit();
+
+            Log::channel('audit')->info('inventory.item.adjusted', [
+                'actor_id' => auth()->id(),
+                'inventory_item_id' => $item->id,
+                'quantity_change' => $quantityChange,
+                'new_quantity' => $item->quantity,
+                'adjustment_type' => $validated['adjustment_type'],
+            ]);
             
             return redirect()->route('inventory.show', $item->id)
                 ->with('success', 'Inventory adjusted successfully.');
@@ -288,13 +312,62 @@ class InventoryController extends Controller
      */
     public function export(Request $request)
     {
-        $format = $request->format ?? 'csv';
-        $items = InventoryItem::all();
-        
-        // Export logic to be implemented
-        // This is a placeholder for the export functionality
-        
-        return redirect()->back()
-            ->with('info', 'Export functionality will be implemented soon.');
+        $validated = $request->validate([
+            'format' => 'nullable|in:csv,pdf,excel',
+        ]);
+
+        $format = $validated['format'] ?? 'csv';
+
+        if ($format === 'pdf') {
+            return redirect()->back()
+                ->with('info', 'Inventory PDF export is not available yet. Please use CSV export.');
+        }
+
+        $items = InventoryItem::orderBy('type')->orderBy('name')->get();
+        $rows = $items->map(function ($item) {
+            return [
+                $item->id,
+                $item->name,
+                $item->type,
+                $item->quantity,
+                $item->threshold,
+                $item->quantity <= $item->threshold ? 'Yes' : 'No',
+                optional($item->updated_at)->format('Y-m-d H:i:s'),
+            ];
+        })->all();
+
+        return $this->streamCsvDownload(
+            'inventory-items-' . now()->format('Ymd-His') . '.csv',
+            ['ID', 'Name', 'Type', 'Quantity', 'Threshold', 'Low Stock', 'Last Updated'],
+            $rows
+        );
+    }
+
+    /**
+     * Stream a CSV download.
+     *
+     * @param  array<int, string>  $headers
+     * @param  array<int, array<int, mixed>>  $rows
+     */
+    private function streamCsvDownload(string $filename, array $headers, array $rows)
+    {
+        return response()->streamDownload(function () use ($headers, $rows) {
+            $handle = fopen('php://output', 'w');
+
+            if ($handle === false) {
+                return;
+            }
+
+            fwrite($handle, "\xEF\xBB\xBF");
+            fputcsv($handle, $headers);
+
+            foreach ($rows as $row) {
+                fputcsv($handle, $row);
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 }

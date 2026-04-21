@@ -9,6 +9,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class OrderController extends Controller
 {
@@ -83,6 +84,7 @@ class OrderController extends Controller
             // Check if water (filled gallons) stock is sufficient
             $filledGallonsItem = InventoryItem::where('type', 'water')->firstOrFail();
             if ($filledGallonsItem->quantity < $validated['quantity']) {
+                DB::rollBack();
                 return back()->withErrors(['quantity' => 'Not enough filled gallons in stock.'])->withInput();
             }
             
@@ -90,6 +92,7 @@ class OrderController extends Controller
             if ($request->has('is_delivery') && $validated['is_delivery']) {
                 $containerItem = InventoryItem::where('type', 'container')->first();
                 if ($containerItem && $containerItem->quantity < $validated['quantity']) {
+                    DB::rollBack();
                     return back()->withErrors(['quantity' => 'Not enough containers in stock.'])->withInput();
                 }
             }
@@ -97,12 +100,14 @@ class OrderController extends Controller
             // Check if caps are sufficient
             $capsItem = InventoryItem::where('type', 'cap')->first();
             if ($capsItem && $capsItem->quantity < $validated['quantity']) {
+                DB::rollBack();
                 return back()->withErrors(['quantity' => 'Not enough caps in stock.'])->withInput();
             }
             
             // Check if seals are sufficient
             $sealsItem = InventoryItem::where('type', 'seal')->first();
             if ($sealsItem && $sealsItem->quantity < $validated['quantity']) {
+                DB::rollBack();
                 return back()->withErrors(['quantity' => 'Not enough seals in stock.'])->withInput();
             }
             
@@ -210,6 +215,15 @@ class OrderController extends Controller
             }
             
             DB::commit();
+
+            Log::channel('audit')->info('order.created', [
+                'actor_id' => auth()->id(),
+                'order_id' => $order->id,
+                'customer_id' => $order->customer_id,
+                'is_delivery' => (bool) $order->is_delivery,
+                'payment_status' => $order->payment_status,
+                'order_status' => $order->order_status,
+            ]);
             
             return redirect()->route('orders.index')
                 ->with('success', 'Order created successfully.');
@@ -319,6 +333,15 @@ class OrderController extends Controller
             }
             
             DB::commit();
+
+            Log::channel('audit')->info('order.updated', [
+                'actor_id' => auth()->id(),
+                'order_id' => $order->id,
+                'customer_id' => $order->customer_id,
+                'payment_status' => $order->payment_status,
+                'order_status' => $order->order_status,
+                'delivery_user_id' => $order->delivery_user_id,
+            ]);
             
             return redirect()->route('orders.show', $order)
                 ->with('success', 'Order updated successfully.');
@@ -366,17 +389,20 @@ class OrderController extends Controller
             // Check if water (filled gallons) stock is sufficient
             $filledGallonsItem = InventoryItem::where('type', 'water')->firstOrFail();
             if ($filledGallonsItem->quantity < $validated['quantity']) {
+                DB::rollBack();
                 return back()->withErrors(['quantity' => 'Not enough filled gallons in stock.'])->withInput();
             }
             
             // Check if other items are sufficient
             $capsItem = InventoryItem::where('type', 'cap')->first();
             if ($capsItem && $capsItem->quantity < $validated['quantity']) {
+                DB::rollBack();
                 return back()->withErrors(['quantity' => 'Not enough caps in stock.'])->withInput();
             }
             
             $sealsItem = InventoryItem::where('type', 'seal')->first();
             if ($sealsItem && $sealsItem->quantity < $validated['quantity']) {
+                DB::rollBack();
                 return back()->withErrors(['quantity' => 'Not enough seals in stock.'])->withInput();
             }
             
@@ -446,6 +472,14 @@ class OrderController extends Controller
             }
             
             DB::commit();
+
+            Log::channel('audit')->info('order.walkin.created', [
+                'actor_id' => auth()->id(),
+                'order_id' => $order->id,
+                'customer_id' => $order->customer_id,
+                'quantity' => $order->quantity,
+                'payment_method' => $order->payment_method,
+            ]);
             
             return redirect()->route('orders.walkin')
                 ->with('success', 'Walk-in sale recorded successfully. Total: ₱' . number_format($order->total_amount, 2));
@@ -488,6 +522,13 @@ class OrderController extends Controller
             $order->save();
             
             DB::commit();
+
+            Log::channel('audit')->info('order.completed', [
+                'actor_id' => auth()->id(),
+                'order_id' => $order->id,
+                'is_delivery' => (bool) $order->is_delivery,
+                'delivery_date' => optional($order->delivery_date)->toDateTimeString(),
+            ]);
             
             return redirect()->back()->with('success', 'Order marked as completed.');
         } catch (\Exception $e) {
@@ -539,6 +580,12 @@ class OrderController extends Controller
             $order->save();
             
             DB::commit();
+
+            Log::channel('audit')->info('order.cancelled', [
+                'actor_id' => auth()->id(),
+                'order_id' => $order->id,
+                'inventory_transactions_reversed' => $inventoryTransactions->count(),
+            ]);
             
             return redirect()->back()->with('success', 'Order cancelled and inventory restored.');
         } catch (\Exception $e) {

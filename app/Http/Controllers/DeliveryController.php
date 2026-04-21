@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class DeliveryController extends Controller
 {
@@ -101,6 +102,13 @@ class DeliveryController extends Controller
         $order->order_status = 'completed';
         $order->delivery_date = Carbon::now();
         $order->save();
+
+        Log::channel('audit')->info('delivery.completed', [
+            'actor_id' => auth()->id(),
+            'order_id' => $order->id,
+            'delivery_user_id' => $order->delivery_user_id,
+            'payment_status' => $order->payment_status,
+        ]);
         
         return redirect()->route('deliveries.index')
             ->with('success', 'Delivery marked as completed successfully.');
@@ -125,6 +133,12 @@ class DeliveryController extends Controller
         
         $order->order_status = 'cancelled';
         $order->save();
+
+        Log::channel('audit')->info('delivery.cancelled', [
+            'actor_id' => auth()->id(),
+            'order_id' => $order->id,
+            'delivery_user_id' => $order->delivery_user_id,
+        ]);
         
         return redirect()->route('deliveries.index')
             ->with('success', 'Delivery cancelled successfully.');

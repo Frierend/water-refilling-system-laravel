@@ -47,6 +47,8 @@ Route::middleware(['auth'])->group(function () {
     // Inventory - Using explicit parameter naming
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory.index');
     Route::get('/inventory/create', [InventoryController::class, 'create'])->name('inventory.create');
+    Route::get('/inventory/export', [InventoryController::class, 'export'])->name('inventory.export');
+    Route::get('/inventory-low-stock', [InventoryController::class, 'lowStock'])->name('inventory.low-stock');
     Route::post('/inventory', [InventoryController::class, 'store'])->name('inventory.store');
     Route::get('/inventory/{id}', [InventoryController::class, 'show'])->name('inventory.show');
     Route::get('/inventory/{id}/edit', [InventoryController::class, 'edit'])->name('inventory.edit');
@@ -56,8 +58,6 @@ Route::middleware(['auth'])->group(function () {
     // Additional inventory routes
     Route::get('/inventory/{id}/adjust', [InventoryController::class, 'showAdjustForm'])->name('inventory.adjust');
     Route::post('/inventory/adjust', [InventoryController::class, 'adjustStore'])->name('inventory.adjust.store');
-    Route::get('/inventory-low-stock', [InventoryController::class, 'lowStock'])->name('inventory.low-stock');
-    Route::get('/inventory/export', [InventoryController::class, 'export'])->name('inventory.export');
     
     // Reports
     Route::get('/reports/sales', [ReportController::class, 'salesReport'])->name('reports.sales');

@@ -14,6 +14,10 @@ class FixInventoryTransactionsConstraints extends Migration
      */
     public function up()
     {
+        if (DB::getDriverName() !== 'mysql') {
+            return;
+        }
+
         // For MySQL, we need to check if the foreign key already exists
         // First, get a list of all foreign keys on the table
         $existingForeignKeys = $this->getForeignKeys('inventory_transactions');
@@ -48,6 +52,10 @@ class FixInventoryTransactionsConstraints extends Migration
      */
     protected function getForeignKeys($table)
     {
+        if (DB::getDriverName() !== 'mysql') {
+            return [];
+        }
+
         // Get all foreign keys from the information schema
         $foreignKeys = [];
         

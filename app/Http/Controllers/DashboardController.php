@@ -35,6 +35,16 @@ class DashboardController extends Controller
             return redirect()->route('orders.create');
         }
 
+        $validated = $request->validate([
+            'order_period' => 'nullable|in:today,week,month',
+            'search' => 'nullable|string|max:100',
+            'per_page' => 'nullable|in:10,25,50',
+        ]);
+
+        $orderPeriod = $validated['order_period'] ?? 'today';
+        $searchTerm = $validated['search'] ?? null;
+        $perPage = (int) ($validated['per_page'] ?? 10);
+
         // Get current Manila time
         $currentTime = Carbon::now('Asia/Manila');
         
@@ -69,7 +79,6 @@ class DashboardController extends Controller
         $recentOrdersQuery = Order::with('customer')->orderBy('created_at', 'desc');
         
         // Apply period filter
-        $orderPeriod = $request->input('order_period', 'today');
         if ($orderPeriod == 'today') {
             $recentOrdersQuery->whereDate('created_at', Carbon::today());
         } elseif ($orderPeriod == 'week') {
@@ -80,17 +89,11 @@ class DashboardController extends Controller
         }
         
         // Apply customer search if provided
-        if ($request->filled('search')) {
-            $searchTerm = $request->input('search');
+        if ($searchTerm) {
             $recentOrdersQuery->whereHas('customer', function($query) use ($searchTerm) {
                 $query->where('name', 'like', '%' . $searchTerm . '%');
             });
         }
-        
-        // Get per page value or default to 10
-        $perPage = $request->input('per_page', 10);
-        // Validate to ensure perPage is one of the allowed values
-        $perPage = in_array($perPage, [10, 25, 50]) ? $perPage : 10;
         
         // Get the filtered recent orders with pagination
         $recentOrders = $recentOrdersQuery->paginate($perPage)->withQueryString();

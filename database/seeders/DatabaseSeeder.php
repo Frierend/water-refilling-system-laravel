@@ -56,6 +56,14 @@ class DatabaseSeeder extends Seeder
         ]);
 
         InventoryItem::create([
+            'name' => 'Returned Empty Gallons',
+            'description' => 'Empty gallons returned by customers',
+            'quantity' => 30,
+            'threshold' => 10,
+            'type' => 'empty'
+        ]);
+
+        InventoryItem::create([
             'name' => 'Bottle Caps',
             'description' => 'Caps for water gallon',
             'quantity' => 100,

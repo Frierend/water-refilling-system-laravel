@@ -51,6 +51,7 @@
                             <select class="form-select @error('type') is-invalid @enderror" id="type" name="type" required>
                                 <option value="water" {{ old('type', $item->type) == 'water' ? 'selected' : '' }}>Water</option>
                                 <option value="container" {{ old('type', $item->type) == 'container' ? 'selected' : '' }}>Container</option>
+                                <option value="empty" {{ old('type', $item->type) == 'empty' ? 'selected' : '' }}>Empty</option>
                                 <option value="cap" {{ old('type', $item->type) == 'cap' ? 'selected' : '' }}>Cap</option>
                                 <option value="seal" {{ old('type', $item->type) == 'seal' ? 'selected' : '' }}>Seal</option>
                                 <option value="other" {{ old('type', $item->type) == 'other' ? 'selected' : '' }}>Other</option>
