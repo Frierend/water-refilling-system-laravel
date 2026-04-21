@@ -49,11 +49,11 @@ class ForcedPasswordChangeEnforcementTest extends TestCase
         ]);
 
         $response->assertRedirect(route('password.request'));
-        $response->assertSessionHas('status');
+        $response->assertSessionHas('status', 'Your temporary password has expired. Please contact the owner for assistance.');
         $this->assertGuest();
     }
 
-    public function test_owner_with_expired_temporary_password_is_redirected_to_forgot_password_recovery_route(): void
+    public function test_owner_with_expired_temporary_password_is_redirected_to_password_recovery_from_all_paths(): void
     {
         $owner = $this->createUser([
             'role' => 'owner',
@@ -67,11 +67,46 @@ class ForcedPasswordChangeEnforcementTest extends TestCase
         ]);
 
         $loginResponse->assertRedirect(route('password.request'));
+        $loginResponse->assertSessionHas('status', 'Your temporary password has expired. Recover your account using Forgot Password and the owner email path.');
         $this->assertGuest();
 
         $this->actingAs($owner);
-        $routeResponse = $this->get('/dashboard');
+        $routeResponse = $this->from('/dashboard')->get('/dashboard');
         $routeResponse->assertRedirect(route('password.request'));
+        $routeResponse->assertSessionHas('status', 'Your temporary password has expired. Recover your account using Forgot Password and the owner email path.');
+        $this->assertGuest();
+
+        $owner = $this->createUser([
+            'role' => 'owner',
+            'must_change_password' => true,
+            'temp_password_expires_at' => now()->subMinute(),
+        ]);
+
+        $showResponse = $this->actingAs($owner)->get(route('password.force.change'));
+
+        $showResponse->assertRedirect(route('password.request'));
+        $showResponse->assertSessionHas('status', 'Your temporary password has expired. Recover your account using Forgot Password and the owner email path.');
+        $this->assertGuest();
+
+        $owner->refresh();
+        $this->assertNotNull($owner->lifecycle_locked_at);
+        $this->assertSame('temporary_password_expired', $owner->lifecycle_lock_reason);
+    }
+
+    public function test_forced_password_update_with_expired_temporary_password_redirects_to_password_recovery(): void
+    {
+        $user = $this->createUser([
+            'must_change_password' => true,
+            'temp_password_expires_at' => now()->subMinute(),
+        ]);
+
+        $response = $this->actingAs($user)->post(route('password.force.update'), [
+            'password' => 'Stronger#Password1',
+            'password_confirmation' => 'Stronger#Password1',
+        ]);
+
+        $response->assertRedirect(route('password.request'));
+        $response->assertSessionHas('status', 'Your temporary password has expired. Please contact the owner for assistance.');
         $this->assertGuest();
 
         $owner->refresh();

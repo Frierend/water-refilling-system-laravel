@@ -132,9 +132,7 @@ class LoginController extends Controller
                         'user_agent' => (string) $request->userAgent(),
                     ]);
 
-                    return back()->withErrors([
-                        'email' => $authenticatedUser->lifecycleLockMessage(),
-                    ])->onlyInput('email');
+                    return redirect()->route('password.request')->with('status', $authenticatedUser->lifecycleLockMessage());
                 }
 
                 Log::channel('security')->info('security.forced_password_change.triggered', [

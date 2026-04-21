@@ -43,12 +43,7 @@ class EnsurePasswordIsChanged
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
-            return redirect()->route('password.request')->with('status',
-                'Your temporary password has expired. Recover access via Forgot Password, then verify your email after signing in.'
-            );
-            return redirect()->route('login')->withErrors([
-                'email' => $user->lifecycleLockMessage(),
-            ]);
+            return redirect()->route('password.request')->with('status', $user->lifecycleLockMessage());
         }
 
         if ($request->routeIs('password.force.change') || $request->routeIs('password.force.update')) {

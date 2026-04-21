@@ -1,497 +1,203 @@
 # Mi-Gail Water System — Master Source of Truth
 
-Last verified against repository code: **April 21, 2026**.
+Last verified against repository code: **April 21, 2026 (UTC)**.
 
-## 1) Authority
-This is the single authoritative documentation file for project/evaluator/security status in this repository.
+## 1) Authority and Terminology
 
-## 2) Verified Final Account-Security Scope (Implemented)
+This file is the single authoritative documentation source for this repository.
 
-### 2.1 Owner-only user creation with temporary password
-Implemented via owner-restricted routes and controller logic:
-- `GET /users/create`, `POST /users` with `role:owner`
-- Assignable roles restricted to `delivery` and `helper`
-- Temporary password generated server-side and stored hashed
-- New accounts flagged for forced password change (`must_change_password`, `temp_password_expires_at`)
-
-Evidence:
-- `routes/web.php`
-- `app/Http/Controllers/UserManagementController.php`
-- `app/Http/Middleware/CheckRole.php`
-- `database/migrations/2026_04_21_000003_add_account_lifecycle_fields_to_users_table.php`
-
-### 2.2 Password complexity enforcement
-Implemented in both:
-- Forced first-login password change flow
-- Forgot-password reset flow (`password.update`)
-
-Complexity policy source:
-- `config/security.php`
-
-Evidence:
-- `app/Http/Controllers/Auth/ForcedPasswordChangeController.php`
-- `app/Http/Controllers/Auth/ResetPasswordController.php`
-- `app/Http/Middleware/EnsurePasswordIsChanged.php`
-
-### 2.3 Forced first-login password change
-Implemented and enforced before normal module access.
-
-Evidence:
-- `app/Http/Controllers/Auth/LoginController.php`
-- `app/Http/Middleware/EnsurePasswordIsChanged.php`
-- `routes/web.php`
-
-### 2.4 Email verification (SMTP-based Laravel flow)
-Implemented with verification notice, signed verification endpoint, and resend endpoint.
-Owner-created users are sent verification notifications.
-
-Evidence:
-- `routes/web.php`
-- `app/Models/User.php` (`MustVerifyEmail`)
-- `app/Http/Controllers/UserManagementController.php`
-- `resources/views/auth/verify-email.blade.php`
-- `database/migrations/2026_04_21_000004_add_email_verification_and_mfa_fields_to_users_table.php`
-
-### 2.5 Forgot-password via SMTP
-Implemented using Laravel password broker routes + controllers + views:
-- `/forgot-password`
-- `/reset-password/{token}`
-- `POST /reset-password`
-- Recovery path is explicitly used when a temporary password has expired, including for the `owner` account:
-  - Expired temporary-password users are logged out and redirected to `password.request` (Forgot Password)
-  - Recovery requires broker reset + standard post-login controls (email verification middleware and MFA middleware where enabled)
-  - No permanent bypass route is granted for lifecycle flags
-- No backup administrative role is introduced; canonical authority remains `owner`
-
-Evidence:
-- `routes/web.php`
-- `app/Http/Controllers/Auth/LoginController.php`
-- `app/Http/Controllers/Auth/ForcedPasswordChangeController.php`
-- `app/Http/Middleware/EnsurePasswordIsChanged.php`
-- `app/Http/Controllers/Auth/ForgotPasswordController.php`
-- `app/Http/Controllers/Auth/ResetPasswordController.php`
-- `resources/views/auth/forgot-password.blade.php`
-- `resources/views/auth/reset-password.blade.php`
-
-### 2.6 Login attempt limiting and account locking
-Implemented account lock behavior with:
-- `failed_attempts`
-- `locked_until`
-- configurable thresholds (`config/auth.php`)
-
-Evidence:
-- `app/Http/Controllers/Auth/LoginController.php`
-- `config/auth.php`
-- `database/migrations/2026_04_21_000002_add_login_lock_fields_to_users_table.php`
-
-### 2.7 reCAPTCHA checkbox on login
-Implemented with server-side verification and optional enable flag:
-- Login form has checkbox widget when enabled
-- Backend verifies Google response token
-
-Evidence:
-- `resources/views/auth/login.blade.php`
-- `app/Services/RecaptchaService.php`
-- `app/Http/Controllers/Auth/LoginController.php`
-- `config/services.php`
-
-### 2.8 MFA with Google Authenticator (TOTP)
-Implemented with setup + challenge + verify + disable flow:
-- Secret generation and provisioning URI
-- TOTP code validation
-- Challenge gating middleware for MFA-enabled users
-
-Evidence:
-- `app/Services/TotpService.php`
-- `app/Http/Controllers/Auth/MfaController.php`
-- `app/Http/Middleware/EnsureMfaIsVerified.php`
-- `routes/web.php`
-- `resources/views/auth/mfa-setup.blade.php`
-- `resources/views/auth/mfa-challenge.blade.php`
-- `database/migrations/2026_04_21_000004_add_email_verification_and_mfa_fields_to_users_table.php`
-
-### 2.9 Split audit logs into `security` and `system`
-Implemented log channels:
-- `security` (auth, lifecycle, authorization/MFA/reCAPTCHA-sensitive events)
-- `system` (orders, inventory, deliveries)
-- `audit` retained as stack compatibility channel
-
-Evidence:
-- `config/logging.php`
-- `app/Http/Controllers/Auth/*`
-- `app/Http/Controllers/UserManagementController.php`
-- `app/Http/Middleware/CheckRole.php`
-- `app/Http/Controllers/OrderController.php`
-- `app/Http/Controllers/InventoryController.php`
-- `app/Http/Controllers/DeliveryController.php`
-
-### 2.10 Mobile number verification via OTP challenge storage
-Implemented with user-level mobile verification fields and dedicated OTP challenge storage:
-- `users.mobile_number` and `users.mobile_verified_at`
-- `mobile_verification_otps` table with hashed OTP, expiry, attempts, and consumption timestamp
-- OTP flow endpoints:
-  - `GET /mobile/verify`
-  - `POST /mobile/verify/send`
-  - `POST /mobile/verify/confirm`
-- OTP delivery behavior:
-  - security log event is written when OTP is generated
-  - local-only OTP preview is displayed in UI when `APP_ENV=local`
-
-Important implementation boundary:
-- **Telecom-grade SMS delivery is not enabled in verified code.**
-- No real SMS gateway/provider integration (Twilio, Semaphore, etc.) is implemented here.
-- OTP presentation is currently local-development oriented and/or audit-log oriented only.
-
-Evidence:
-- `database/migrations/2026_04_21_000005_add_mobile_verification_fields_to_users_table.php`
-- `database/migrations/2026_04_21_000006_create_mobile_verification_otps_table.php`
-- `app/Models/MobileVerificationOtp.php`
-- `app/Http/Controllers/Auth/MobileVerificationController.php`
-- `resources/views/auth/mobile-verification.blade.php`
-- `routes/web.php`
-
-## 3) Audit Logging Taxonomy
-
-### `security` category
-Includes:
-- authentication failures/lockouts
-- blocked login attempts during active lockout windows
-- account lifecycle expiry locks (temporary password expired)
-- forced-password-change trigger and completion
-- forced-password-change failure paths
-- forgot/reset password request and result events
-- owner account lifecycle actions
-- authorization denials
-- email verification notice/send/fulfillment
-- MFA challenge outcomes and enable/disable actions
-- OTP setup lifecycle (issued/expired/verification failure)
-- reCAPTCHA-related gate failures
-
-### `system` category
-Includes:
-- order activity (created/updated/completed/cancelled/walk-in)
-- inventory item and stock adjustment activity
-- delivery completion/cancellation events
-- customer operations (create/update/delete/delete-blocked)
-
-### 3.1 Logging Event Matrix (Controller/Middleware Coverage)
-
-| Category | Event family | Event names (implemented) | Primary implementation points |
-|---|---|---|---|
-| security | Failed logins / lockouts / blocked locked-period logins | `auth.login.failed`, `auth.account.locked`, `auth.login.locked_blocked` | `app/Http/Controllers/Auth/LoginController.php` |
-| security | Lifecycle expiry locks | `security.account.lifecycle.expiry.locked` | `app/Http/Controllers/Auth/LoginController.php`, `app/Http/Controllers/Auth/ForcedPasswordChangeController.php`, `app/Http/Middleware/EnsurePasswordIsChanged.php` |
-| security | Forced change trigger/success/failure | `security.forced_password_change.triggered`, `security.password.changed.success`, `security.forced_password_change.failed` | `app/Http/Controllers/Auth/LoginController.php`, `app/Http/Middleware/EnsurePasswordIsChanged.php`, `app/Http/Controllers/Auth/ForcedPasswordChangeController.php` |
-| security | Forgot/reset requests and results | `security.password.forgot.requested`, `security.password.forgot.sent`, `security.password.forgot.failed`, `security.password.reset.success`, `security.password.reset.failed` | `app/Http/Controllers/Auth/ForgotPasswordController.php`, `app/Http/Controllers/Auth/ResetPasswordController.php` |
-| security | Email verification send/fulfill/notice | `security.email.verification.notice.viewed`, `security.email.verification.sent`, `security.email.verification.fulfilled` | `routes/web.php` |
-| security | MFA enable/challenge/disable | `security.mfa.challenge.requested`, `security.mfa.challenge.passed`, `security.mfa.challenge.failed`, `security.mfa.challenge.required`, `security.mfa.enabled`, `security.mfa.disabled`, `security.mfa.disable.failed` | `app/Http/Controllers/Auth/MfaController.php`, `app/Http/Middleware/EnsureMfaIsVerified.php` |
-| security | OTP lifecycle | `security.otp.setup.issued`, `security.otp.setup.expired`, `security.otp.setup.verification.failed` | `app/Http/Controllers/Auth/MfaController.php` |
-| security | Unauthorized access | `security.authorization.denied` | `app/Http/Middleware/CheckRole.php`, `app/Http/Controllers/OrderController.php`, `app/Http/Controllers/InventoryController.php`, `app/Http/Controllers/DeliveryController.php` |
-| system | User creation (operational) | `security.user.created_by_owner`, `security.temporary_password.issued` (security-classified lifecycle events for operational user onboarding) | `app/Http/Controllers/UserManagementController.php` |
-| system | Orders | `order.created`, `order.updated`, `order.walkin.created`, `order.completed`, `order.cancelled` | `app/Http/Controllers/OrderController.php` |
-| system | Inventory | `inventory.item.created`, `inventory.item.adjusted`, `inventory.item.deleted` | `app/Http/Controllers/InventoryController.php` |
-| system | Deliveries | `delivery.completed`, `delivery.cancelled` | `app/Http/Controllers/DeliveryController.php` |
-| system | Customer operations | `customer.created`, `customer.updated`, `customer.deleted`, `customer.delete.blocked.has_orders` | `app/Http/Controllers/CustomerController.php` |
-
-## 4) Access Control Terminology (Canonical)
-- Project: **Mi-Gail Water System**
+Canonical role model:
 - Administrative authority: **owner**
 - Operational roles: **delivery**, **helper**
 
-Legacy `admin` references in code are compatibility checks; effective administrative authority remains `owner`.
-
-## 5) Security Middleware and Route Protection
-Protected business routes are enforced with middleware chain:
-- `auth`
-- `password.changed`
-- `verified`
-- `mfa`
-
-Security-specific flows remain reachable where appropriate:
-- forced password change routes
-- email verification notice/verify/resend
-- MFA challenge/verification
-
-Evidence:
-- `routes/web.php`
-- `app/Http/Kernel.php`
-
-## 6) Verification Evidence
-Security tests present under:
-> Canonical project documentation for the **Mi-Gail Water System**.  
-> Date of verification (static repository inspection): **April 21, 2026**.
+If `admin` appears in legacy names (for example `AdminUserCreationTest`), it is treated as legacy naming; the verified runtime authority model is `owner` + `delivery` + `helper`.
 
 ---
 
-## 1) Document Authority and Scope
+## 2) Verified Implementation Matrix (A–J)
 
-This file is the single authoritative documentation source for this repository. It consolidates and supersedes overlapping project/evaluator documentation content from:
+Legend:
+- **Implemented** = verified in routes/controllers/config/migrations, with tests where present.
+- **Partial** = core code exists, but there is a verified gap or mismatch.
 
-## 1) Documentation Authority
+### A. Owner-only user creation with temporary password lifecycle
+**Status:** Implemented.
 
-This is the single authoritative documentation file for the **Mi-Gail Water System**.
+Verified:
+- Owner-only create/store user routes (`role:owner`) exist.
+- Owner can assign only `delivery` and `helper` in controller validation.
+- Temporary password is generated/accepted, hashed, expiry timestamped, and `must_change_password` is set.
+- Security audit events are emitted for owner-created users and temp-password issuance.
+- Migration fields exist: `must_change_password`, `password_changed_at`, `temp_password_expires_at`, lifecycle lock fields.
+- Tests cover owner access restrictions and lifecycle field behavior.
 
-All overlapping implementation/audit/security/checklist documentation is deprecated/archive-ready and should be treated as pointer-only material. Use this file as the source for:
-- verified implementation status,
-- security and account-lifecycle behavior,
-- logging taxonomy (`security` vs `system`), and
-- known gaps/deferred work.
+### B. Password policy enforcement
+**Status:** Implemented.
 
-## 2) Canonical Terminology
+Verified:
+- Central policy is defined in `config/security.php`.
+- Forced change and reset flows use `PasswordPolicy::rules()`.
+- Tests verify reset enforces configured minimum length and successful reset clears lifecycle flags.
 
-- Project: **Mi-Gail Water System**
-- Administrative authority: **owner**
-- Operational roles: **delivery**, **helper**
+### C. Forced first-login password change + lifecycle lock behavior
+**Status:** Implemented.
 
-Legacy `admin` references in code or tests are compatibility naming only; the effective administrative authority is `owner`.
+Verified:
+- Post-login redirect to forced change when `must_change_password` is true.
+- Middleware blocks normal access until forced change is completed.
+- Expired temporary passwords trigger lifecycle lock and redirect to forgot-password recovery.
+- Tests cover redirect behavior, expired temp-password handling, and lifecycle lock messaging.
 
-## 3) Verification Method
+### D. Forgot-password and reset-password recovery
+**Status:** Implemented.
 
-Claims below were verified from Laravel routes, controllers/services/middleware, config, migrations, and security feature tests in this repository.
+Verified:
+- Guest routes for forgot/reset endpoints exist.
+- Forgot flow uses Laravel broker reset-link send.
+- Reset flow updates password, rotates remember token, clears lifecycle lock and temporary-password flags.
+- Tests cover forgot status response and lifecycle reset behavior.
 
-If a claim cannot be verified in code/tests, it is documented as **not implemented** or **operational assumption**.
+### E. Email verification flow (SMTP-dependent)
+**Status:** Implemented.
 
----
+Verified:
+- `User` implements `MustVerifyEmail`.
+- Verification notice, signed verify endpoint, and resend endpoint exist.
+- Verified middleware is part of protected business route chain.
+- Owner-created users are sent verification notification when created.
+- Tests cover verified-middleware redirect for unverified users.
 
-## 4) Verified Security and Account-Lifecycle Controls
+### F. Login lockout controls
+**Status:** Implemented.
 
-### 4.1 Password policy (explicit)
+Verified:
+- Configurable thresholds (`auth.login_lockout.max_attempts`, `lock_minutes`).
+- Failed attempts and lock window persisted in `users.failed_attempts` and `users.locked_until`.
+- Security events logged for failures and lockouts.
+- Migration adds lockout fields; tests verify increment/lock/reset behavior.
 
-**Implemented and configurable** via `config/security.php`:
-- minimum length (default 8),
-- uppercase requirement,
-- lowercase requirement,
-- number requirement,
-- symbol requirement.
+### G. reCAPTCHA on login
+**Status:** Implemented (feature-toggle dependent).
 
-**Enforced in code paths:**
-- forced password change flow (`ForcedPasswordChangeController::passwordRules()`),
-- forgot-password reset flow (`ResetPasswordController`, minimum length via `config/security.php`).
+Verified:
+- Login view posts `g-recaptcha-response`.
+- Login controller invokes `RecaptchaService` before auth attempt.
+- Service returns allow-all when `RECAPTCHA_ENABLED=false`; verifies token via Google endpoint when enabled.
 
-Note: reset flow currently enforces configured minimum length; character-class regex enforcement is implemented in forced-change flow.
+Conflict note:
+- No dedicated feature test was found that asserts reCAPTCHA failure/success paths.
 
-### 4.2 Lockout policy (explicit)
+### H. MFA (TOTP) challenge/setup/disable
+**Status:** Implemented.
 
-**Implemented account lockout policy** in `config/auth.php` and `LoginController`:
-- `max_attempts` default: 5 failed attempts,
-- `lock_minutes` default: 5 minutes,
-- tracked with `users.failed_attempts` and `users.locked_until`.
+Verified:
+- Setup, enable, challenge, verify, and disable routes/controllers exist.
+- `mfa` middleware blocks guarded routes unless challenge is passed.
+- TOTP secret stored encrypted; session tracks challenge pass.
+- Migration adds `mfa_secret` and `mfa_enabled`.
+- Tests cover MFA lifecycle and challenge gating behavior.
 
-Behavior:
-- failed attempts increment per known account,
-- account is blocked while `locked_until` is in the future,
-- counters reset after successful login or expired lock window.
+### I. Audit log categories (`security`, `system`)
+**Status:** Implemented.
 
-### 4.3 Lifecycle expiry policy (explicit)
+Verified:
+- `logging.php` defines `security`, `system`, and `audit` (stack) channels.
+- Security-sensitive controllers/middleware log to `security`.
+- Operational controllers (orders/inventory/delivery/customer) log to `system`.
+- Tests include security/system log emission checks.
 
-**Implemented temporary-password lifecycle model**:
-- owner-created users are issued temporary passwords,
-- account flagged `must_change_password = true`,
-- expiry timestamp stored in `temp_password_expires_at`,
-- expiry window configured by `security.temporary_password.expires_hours` (default 24h),
-- expired temporary-password users are denied login and told to contact owner.
+### J. Mobile verification OTP lifecycle
+**Status:** Partial (implemented in runtime code; one stale test remains).
 
-### 4.4 Recovery model (explicit)
+Verified runtime implementation:
+- Routes exist: `mobile.verification.notice`, `.send`, `.verify`.
+- OTP records persisted in `mobile_verification_otps` with hash, attempts, expiry, consumed timestamp.
+- User fields `mobile_number`, `mobile_verified_at` are persisted on successful verification.
+- Migration and model support present; feature tests validate send/verify/wrong-OTP flows.
 
-**Implemented recovery path:** Laravel broker-based email reset:
-- `GET /forgot-password`, `POST /forgot-password`,
-- `GET /reset-password/{token}`, `POST /reset-password`.
-
-On successful reset:
-- password updated,
-- remember token rotated,
-- lifecycle flags cleared (`must_change_password = false`, `temp_password_expires_at = null`, `password_changed_at = now()`).
-
-### 4.5 SMTP setup (explicit)
-
-Email-dependent flows (verification + reset links) rely on Laravel mail config:
-- default mailer is SMTP,
-- SMTP host/port/encryption/credentials are environment-driven.
-
-**Operational requirement:** production `.env` must provide valid mail transport values (`MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_*`).
-
-### 4.6 Email verification (explicit)
-
-**Implemented Laravel verification flow**:
-- `User` implements `MustVerifyEmail`,
-- verification notice route,
-- signed/throttled verify endpoint,
-- resend verification endpoint,
-- owner-created users are sent verification notifications.
-
-Protected business routes are gated by `verified` middleware.
-
-### 4.7 MFA (explicit)
-
-**Implemented TOTP MFA (Google Authenticator compatible)**:
-- setup route generates secret + provisioning URI (`otpauth://...`),
-- challenge verifies 6-digit TOTP,
-- enabled state stored per user (`mfa_enabled`, encrypted `mfa_secret`),
-- `mfa` middleware blocks protected routes until challenge is passed for session,
-- disable flow requires current password.
-
-### 4.8 OTP/mobile behavior (explicit)
-
-**Implemented OTP behavior:** app-based 6-digit TOTP for authenticator applications (e.g., Google Authenticator).
-
-**Not implemented:** SMS OTP, phone-number delivery OTP, or mobile carrier-based verification flows. No mobile-number model fields or SMS provider integration are present.
-
-### 4.9 reCAPTCHA (related login anti-abuse)
-
-Login supports optional Google reCAPTCHA token verification:
-- enabled via `services.recaptcha.enabled`,
-- server-side verification via configured Google verify URL.
-
-If disabled, login proceeds without captcha enforcement.
+Conflict explicitly recorded:
+- `tests/Feature/Security/OtpMobileVerificationLifecycleTest.php` still states mobile OTP routes are not implemented and marks itself skipped using old route names (`mobile.otp.send`, `mobile.otp.verify`). This test is inconsistent with current routes and current implementation.
 
 ---
 
-## 5) Audit Logging Taxonomy (`security` vs `system`) (explicit)
+## 3) SMTP Status and Boundaries
 
-### 5.1 Channel design
+### 3.1 App logic correctness (verified in code)
+- Mailer defaults to SMTP in `config/mail.php`.
+- Forgot-password and reset use Laravel password broker mail flow.
+- Email verification notice/send/fulfill routes are wired.
+- Owner-created users call `sendEmailVerificationNotification()`.
 
-`config/logging.php` defines:
-- `security` daily log file (`storage/logs/security.log`, retention env-configurable),
-- `system` daily log file (`storage/logs/system.log`, retention env-configurable),
-- `audit` stack channel combining both for compatibility.
+Conclusion: application mail-dependent logic is wired correctly for Laravel SMTP usage.
 
-### 5.2 Security-log category
+### 3.2 PHP/OpenSSL/CA-bundle environment issues (operational risk outside app logic)
+These issues are environment/runtime concerns, not route/controller correctness:
+- PHP OpenSSL extension missing/disabled.
+- Outdated CA trust store causing TLS certificate validation failures.
+- Local machine clock skew causing TLS handshake/certificate validity issues.
 
-`security` log events include (verified examples):
-- failed logins and lockouts,
-- blocked logins for locked accounts,
-- forced-password-change trigger and completion,
-- owner user creation and temporary-password issuance metadata,
-- authorization denials,
-- MFA challenge failures/success and enable/disable actions.
+When these occur, SMTP failures can happen even when code and `.env` values are correct.
 
-### 5.3 System-log category
+### 3.3 Gmail-provider constraints (external provider behavior)
+When using Gmail SMTP (`smtp.gmail.com`):
+- Standard account password is not sufficient; app password is required.
+- 2-step verification must be enabled in the Gmail account.
+- Provider-side anti-abuse/rate policies can block or defer sends.
 
-`system` log events include (verified examples):
-- order create/update/walk-in/complete/cancel,
-- inventory item create/delete/adjust,
-- delivery complete/cancel.
-
----
-
-## 6) Backup and Retention (explicit)
-
-### 6.1 Verified in-code retention controls
-
-- Log-file retention is explicitly configured on daily channels:
-  - `SECURITY_LOG_DAYS` (default 30),
-  - `SYSTEM_LOG_DAYS` (default 30),
-  - default Laravel daily log channel retention is 14 days.
-
-### 6.2 Backup status
-
-- **No dedicated database/file backup scheduler or restoration automation is present in this repository code.**
-- Backup cadence, media, encryption-at-rest, offsite copy, and restore testing are deployment/operations responsibilities and should be handled outside this codebase unless future code adds them.
+Conclusion: Gmail-specific failures are provider-constraint failures, separate from app logic correctness.
 
 ---
 
-## 7) Incident Response (explicit)
+## 4) Local Setup Checklist (`.env`)
 
-### 7.1 In-code incident-support capabilities
+### 4.1 Required baseline app/runtime keys
+- `APP_NAME`, `APP_ENV`, `APP_KEY`, `APP_DEBUG`, `APP_URL`
+- `DB_CONNECTION`, `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`
+- `SESSION_DRIVER`, `CACHE_DRIVER`, `QUEUE_CONNECTION`
 
-Implemented support signals:
-- structured security events in `security` log channel,
-- account lockout controls,
-- forced password reset/change and verification paths,
-- authorization-denial logging.
+### 4.2 Required for account lifecycle + security policy
+- `LOGIN_MAX_ATTEMPTS`
+- `LOGIN_LOCK_MINUTES`
+- `TEMP_PASSWORD_EXPIRES_HOURS`
+- `SECURITY_PASSWORD_MIN_LENGTH`
+- `SECURITY_PASSWORD_REQUIRE_UPPERCASE`
+- `SECURITY_PASSWORD_REQUIRE_LOWERCASE`
+- `SECURITY_PASSWORD_REQUIRE_NUMBERS`
+- `SECURITY_PASSWORD_REQUIRE_SYMBOLS`
+- `OWNER_EMAIL` (needed for owner-contact messaging and default mail-from fallback)
+- `OWNER_NAME`
 
-### 7.2 Documented minimum response model
+### 4.3 Required for SMTP-dependent features (email verification + forgot/reset links)
+- `MAIL_MAILER` (expected `smtp`)
+- `MAIL_HOST`
+- `MAIL_PORT`
+- `MAIL_USERNAME`
+- `MAIL_PASSWORD`
+- `MAIL_ENCRYPTION`
+- `MAIL_FROM_ADDRESS`
+- `MAIL_FROM_NAME`
 
-For this repository scope, minimum process is:
-1. Detect suspicious activity from `security` logs.
-2. Contain affected accounts (owner action: reset credentials, disable MFA if recovery needed, rotate secrets as applicable).
-3. Eradicate root cause (credential/config/access issue).
-4. Recover service (verify auth and core business flows).
-5. Record post-incident findings and corrective actions.
-
-**Gap:** No separate automated incident runbook system exists in-code.
-
----
-
-## 8) Local Presentation Assumptions (explicit)
-
-The application is implemented as a **server-rendered web UI** (Blade templates), not a native mobile app.
-
-Assumptions for local/dev presentation:
-- users access via browser sessions,
-- MFA OTP entry occurs on web forms,
-- email verification/reset links are consumed in browser,
-- role-specific navigation/redirects are web-route based.
-
-No in-code assumptions for native mobile push, SMS inbox parsing, or mobile-specific OTP UX are implemented.
-
----
-
-## 15) Local Owner Identity + SMTP Setup (Gmail App Password)
-
-This section is the canonical local setup for account lifecycle and SMTP email flows (verification + password reset), verified against:
-- `config/security.php` (`OWNER_EMAIL`, optional `OWNER_NAME`)
-- `config/mail.php` (`MAIL_*`, fallback usage with owner identity)
-- Auth flows that surface owner-contact guidance when temporary passwords expire
-
-### 15.1 `.env` keys to set locally
-
-Edit your local `.env` (not `.env.example`) and set:
-
-```dotenv
-OWNER_EMAIL=owner@example.com
-OWNER_NAME="Mi-Gail Owner"
-
-MAIL_MAILER=smtp
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-MAIL_USERNAME=your_gmail_address@gmail.com
-MAIL_PASSWORD=your_16_char_gmail_app_password
-MAIL_ENCRYPTION=tls
-MAIL_FROM_ADDRESS=your_gmail_address@gmail.com
-MAIL_FROM_NAME="Mi-Gail Water System"
-```
-
-Notes:
-- `OWNER_NAME` is optional; leave blank if you only want email-based owner contact.
-- Keep placeholder values in `.env.example`; never commit real credentials.
-
-### 15.2 Step-by-step Gmail app-password setup (local development)
-
-1. Sign in to the Gmail account you will use as SMTP sender (`MAIL_USERNAME` / `MAIL_FROM_ADDRESS`).
-2. Enable Google 2-Step Verification on that account (required before app passwords are available).
-3. Open **Google Account → Security → App passwords**.
-4. Create an app password (choose **Mail** + your device, or a custom label like `Mi-Gail Local SMTP`).
-5. Copy the generated 16-character password immediately (Google only shows it once).
-6. Paste that value into `MAIL_PASSWORD` in your local `.env`.
-7. Set `MAIL_ENCRYPTION=tls` and `MAIL_PORT=587` for Gmail SMTP submission.
-8. Run `php artisan config:clear` after editing `.env` so Laravel reloads settings.
-9. Test with email verification or forgot-password flow from a local account.
-
-### 15.3 Security guardrails
-
-- Do not commit `.env`.
-- Do not replace placeholders in `.env.example` with real secrets.
-- Rotate the Gmail app password immediately if it is exposed.
+### 4.4 Optional / feature-toggle keys
+- reCAPTCHA: `RECAPTCHA_ENABLED`, `RECAPTCHA_SITE_KEY`, `RECAPTCHA_SECRET_KEY`, `RECAPTCHA_VERIFY_URL`
+- MFA tuning: `MFA_ISSUER`, `MFA_TIME_WINDOW`
+- Audit retention/levels: `SECURITY_LOG_LEVEL`, `SECURITY_LOG_DAYS`, `SYSTEM_LOG_LEVEL`, `SYSTEM_LOG_DAYS`
+- `MAIL_EHLO_DOMAIN` (optional SMTP local domain override)
 
 ---
 
-## 15) Consolidation / Archival Guidance for Legacy Docs
+## 5) Known Limitations and Deferred Items
 
-Security tests currently present and aligned to implemented behavior include:
-- owner-only user creation, lifecycle flags, and secure logging expectations,
-- forced password change enforcement and lifecycle handling,
-- login lockout increment/block/reset behavior,
-- additional report/export validation tests.
+1. **No telecom SMS provider integration for mobile OTP delivery.**
+   OTP generation/verification storage exists, and local OTP preview is shown in `local` environment, but no Twilio/Semaphore/other SMS gateway dispatch is implemented.
 
-Coverage confirms key policies above, but not all possible flows (e.g., full end-to-end SMTP delivery success in external infrastructure).
+2. **Test suite mismatch for one legacy OTP test.**
+   `OtpMobileVerificationLifecycleTest` is stale and skipped with old route names; it conflicts with current implemented OTP routes and separate passing OTP tests.
 
----
+3. **No explicit reCAPTCHA feature test coverage.**
+   Runtime logic exists, but no dedicated test currently asserts `RECAPTCHA_ENABLED=true` verification failure/success behavior.
 
-## 10) Deprecated / Archive-Ready Documentation Index
+4. **Legacy naming persists in some test/file names (`Admin...`).**
+   Runtime authorization model is still correctly owner-centric, but naming cleanup is deferred.
 
-The following files are deprecated/archive-ready and now pointer-only:
-- `AUDIT_REPORT.md`
-- `IMPLEMENTATION_CHECKLIST.md`
-- `SECURITY_DOCUMENTATION.md`
-
-Where conflicts existed, this file preserved code-verified behavior and marked discrepancies.
+5. **SMTP production readiness depends on host environment and provider account policy.**
+   Application logic is wired, but successful send in production is contingent on runtime TLS/CA health and Gmail/provider configuration.

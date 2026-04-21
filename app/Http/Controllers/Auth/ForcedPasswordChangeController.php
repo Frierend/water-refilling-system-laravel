@@ -52,9 +52,7 @@ class ForcedPasswordChangeController extends Controller
                 'source' => 'forced_password_change.show',
             ]);
 
-            return redirect()->route('login')->withErrors([
-                'email' => $user->lifecycleLockMessage(),
-            ]);
+            return redirect()->route('password.request')->with('status', $user->lifecycleLockMessage());
         }
 
         return view('auth.force-password-change');
@@ -96,9 +94,7 @@ class ForcedPasswordChangeController extends Controller
                 'source' => 'forced_password_change.update',
             ]);
 
-            return redirect()->route('login')->withErrors([
-                'email' => $user->lifecycleLockMessage(),
-            ]);
+            return redirect()->route('password.request')->with('status', $user->lifecycleLockMessage());
         }
 
         $validated = $request->validate([
