@@ -16,6 +16,7 @@
         /* Hide browser header/footer content */
         html {
             -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
         
         /* Hide everything by default */
@@ -35,6 +36,7 @@
             top: 0;
             width: 100%;
             padding: 15px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
         
         /* Hide all non-printable elements */
@@ -42,27 +44,36 @@
             display: none !important;
         }
         
-        /* Format the table properly */
-        .table {
-            width: 100% !important;
-            border-collapse: collapse !important;
-            font-size: 10pt !important;
+        /* Enhanced table styling */
+        .print-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 10pt;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
         }
         
-        .table th, .table td {
-            border: 1px solid #ddd !important;
-            padding: 5px !important;
+        .print-table th {
+            background-color: #f0f7fa !important;
+            color: #2c3e50;
+            font-weight: 600;
+            border: 1px solid #c8d6e5;
+            padding: 10px;
+            text-align: left;
+            text-transform: uppercase;
+            font-size: 9pt;
+            letter-spacing: 0.5px;
         }
         
-        /* Remove styling that wastes ink */
-        .card {
-            border: none !important;
-            box-shadow: none !important;
-            margin: 0 !important;
+        .print-table td {
+            border: 1px solid #e9ecef;
+            padding: 8px 10px;
+            text-align: left;
+            vertical-align: middle;
         }
         
-        .card-header, .card-body {
-            padding: 0 !important;
+        .print-table tr:nth-child(even) {
+            background-color: #f8fafc !important;
         }
         
         /* Replace badge styling with plain text to save ink */
@@ -73,61 +84,63 @@
             padding: 0 !important;
         }
         
-        /* Format header/footer for print */
+        /* Print header styling */
         .print-header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #3490dc;
         }
         
         .company-name {
-            font-size: 24px; font-weight: 700; margin-bottom: 5px;
-            text-transform: uppercase; letter-spacing: 1px;
+            font-size: 28px; 
+            font-weight: 800; 
+            margin-bottom: 5px;
+            text-transform: uppercase; 
+            letter-spacing: 2px;
+            color: #2c3e50;
         }
-        .report-title { font-size: 20px; font-weight: 600; margin-bottom: 5px; }
-        .report-period { font-size: 16px; margin-bottom: 15px; }
         
+        .report-title { 
+            font-size: 20px; 
+            font-weight: 600; 
+            margin-bottom: 5px; 
+            color: #3490dc;
+            letter-spacing: 1px;
+        }
+        
+        .report-period { 
+            font-size: 16px; 
+            margin-bottom: 15px;
+            color: #606f7b;
+            font-style: italic;
+        }
+        
+        /* Print footer styling */
         .print-footer {
             margin-top: 30px;
             page-break-inside: avoid;
-            border-top: 1px solid #ddd; padding-top: 10px; font-size: 9pt;
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+            font-size: 9pt;
+            color: #606f7b;
         }
-        
-        /* Hide links in print */
-        a {
-            text-decoration: none !important;
-            color: #000 !important;
-        }
-        
-        .print-table {
-            margin-top: 20px;
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .print-table th, .print-table td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        .print-table th {
-            background-color: #f8f8f8;
-            font-weight: bold;
-        }
-        .print-table tr:nth-child(even) { background-color: #f2f2f2; }
     }
     
-    /* Loading indicator */
+    /* Loading overlay */
     .loading-overlay {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(255, 255, 255, 0.8);
+        background-color: rgba(255, 255, 255, 0.9);
         z-index: 9999;
         display: flex;
         align-items: center;
         justify-content: center;
         flex-direction: column;
+        backdrop-filter: blur(5px);
     }
     
     .spinner {
@@ -137,39 +150,13 @@
         border-radius: 50%;
         border-top: 4px solid #f3f3f3;
         animation: spin 1s linear infinite;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
     }
     
     @keyframes spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
-    
-    /* Enhanced buttons */
-    .btn-group-report {
-        margin-bottom: 15px;
-    }
-    
-    .btn-report {
-        border-radius: 20px;
-        padding: 8px 16px;
-        margin-right: 5px;
-        font-weight: 600;
-        transition: all 0.2s;
-    }
-    
-    .btn-report:hover {
-        transform: translateY(-2px);
-    }
-    
-    .btn-report.active {
-        box-shadow: 0 0 0 2px white, 0 0 0 4px var(--primary-color);
-    }
-    
-    .per-page-selector { display: inline-flex; align-items: center; }
-    .per-page-selector .btn { border-radius: 0; padding: 0.25rem 0.5rem; }
-    .per-page-selector .btn:first-child { border-top-left-radius: 0.25rem; border-bottom-left-radius: 0.25rem; }
-    .per-page-selector .btn:last-child { border-top-right-radius: 0.25rem; border-bottom-right-radius: 0.25rem; }
-    .printable-section { display: none; }
 </style>
 @endsection
 
@@ -180,51 +167,45 @@
     <h5>Generating Report...</h5>
 </div>
 
-<div class="container py-4">
-    <!-- Screen-only header -->
-    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
-        <div>
-            <h1 class="display-6 fw-bold text-primary">
-                <i class="bi bi-truck me-2"></i>Delivery Report
-            </h1>
-            <p class="text-muted">
-                <i class="bi bi-calendar3"></i> 
-                {{ $startDate->format('M d, Y') }} to {{ $endDate->format('M d, Y') }}
-            </p>
+<!-- Page Header -->
+@component('components.page-header', [
+    'icon' => 'truck',
+    'title' => 'Delivery Report',
+    'subtitle' => $startDate->format('M d, Y') . ' to ' . $endDate->format('M d, Y')
+])
+    @slot('actions')
+        <div class="btn-group mb-2">
+            <button onclick="window.print()" class="btn btn-outline-dark">
+                <i class="bi bi-printer me-1"></i> Print
+            </button>
+            <button type="button" class="btn btn-outline-dark dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="visually-hidden">Export options</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item" href="{{ route('reports.delivery.export', array_merge(request()->query(), ['format' => 'excel'])) }}"
+                       onclick="showLoading()">
+                        <i class="bi bi-file-earmark-excel me-2"></i>Export to Excel
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{{ route('reports.delivery.export', array_merge(request()->query(), ['format' => 'csv'])) }}"
+                       onclick="showLoading()">
+                        <i class="bi bi-file-earmark-text me-2"></i>Export to CSV
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{{ route('reports.delivery.export', array_merge(request()->query(), ['format' => 'pdf'])) }}"
+                       onclick="showLoading()">
+                        <i class="bi bi-file-earmark-pdf me-2"></i>Export to PDF
+                    </a>
+                </li>
+            </ul>
         </div>
-        <div>
-            <div class="btn-group mb-2">
-                <button onclick="window.print()" class="btn btn-outline-dark">
-                    <i class="bi bi-printer me-1"></i> Print
-                </button>
-                <button type="button" class="btn btn-outline-dark dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
-                    <span class="visually-hidden">Export options</span>
-                </button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    <li>
-                        <a class="dropdown-item" href="{{ route('reports.delivery.export', array_merge(request()->query(), ['format' => 'excel'])) }}"
-                           onclick="showLoading()">
-                            <i class="bi bi-file-earmark-excel me-2"></i>Export to Excel
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="{{ route('reports.delivery.export', array_merge(request()->query(), ['format' => 'csv'])) }}"
-                           onclick="showLoading()">
-                            <i class="bi bi-file-earmark-text me-2"></i>Export to CSV
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="{{ route('reports.delivery.export', array_merge(request()->query(), ['format' => 'pdf'])) }}"
-                           onclick="showLoading()">
-                            <i class="bi bi-file-earmark-pdf me-2"></i>Export to PDF
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Report Type Buttons -->
+    @endslot
+@endcomponent
+
+<!-- Report Type Buttons -->
 <div class="card shadow-sm mb-4 no-print">
     <div class="card-body">
         <div class="row">
@@ -301,200 +282,183 @@
         </div>
     </div>
 </div>
-    
-    <!-- Summary Cards -->
-    <div class="row mb-4 no-print">
-        <div class="col-md-3">
-            <div class="card shadow-sm stats-card bg-white">
-                <div class="stats-icon text-primary">
-                    <i class="bi bi-truck"></i>
-                </div>
-                <h6 class="text-muted mb-2">Total Deliveries</h6>
-                <h3 class="mb-0">{{ $totalDeliveries }}</h3>
-                <div class="mt-2 text-muted">
-                    <small>₱{{ number_format($totalDeliveryAmount, 2) }} revenue</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm stats-card bg-white">
-                <div class="stats-icon text-success">
-                    <i class="bi bi-check-circle"></i>
-                </div>
-                <h6 class="text-muted mb-2">Completed</h6>
-                <h3 class="mb-0">{{ $completedDeliveries }}</h3>
-                <div class="mt-2 text-muted">
-                    <small>{{ $completedDeliveries > 0 ? number_format(($completedDeliveries / $totalDeliveries) * 100, 1) : 0 }}% completion rate</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm stats-card bg-white">
-                <div class="stats-icon text-warning">
-                    <i class="bi bi-clock-history"></i>
-                </div>
-                <h6 class="text-muted mb-2">Pending</h6>
-                <h3 class="mb-0">{{ $pendingDeliveries }}</h3>
-                <div class="mt-2 text-muted">
-                    <small>{{ $pendingDeliveries > 0 ? number_format(($pendingDeliveries / $totalDeliveries) * 100, 1) : 0 }}% of total</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm stats-card bg-white">
-                <div class="stats-icon text-info">
-                    <i class="bi bi-droplet"></i>
-                </div>
-                <h6 class="text-muted mb-2">Water Delivered</h6>
-                <h3 class="mb-0">{{ $totalQuantity }}</h3>
-                <div class="mt-2 text-muted">
-                    <small>containers</small>
-                </div>
-            </div>
-        </div>
+
+<!-- Summary Cards -->
+<div class="row mb-4 no-print">
+    <div class="col-md-3">
+        @component('components.dashboard-card', [
+            'icon' => 'truck',
+            'color' => 'primary',
+            'title' => 'Total Deliveries',
+            'value' => $totalDeliveries,
+            'subtitle' => '₱' . number_format($totalDeliveryAmount, 2) . ' revenue'
+        ])
+        @endcomponent
     </div>
-    
-    <!-- Delivery Personnel Performance -->
-    <div class="card shadow-sm mb-4 no-print">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0">Delivery Personnel Performance</h5>
-        </div>
-        <div class="card-body">
-            <div class="row">
-                @forelse($personnelStats as $personnel)
-                <div class="col-md-4 mb-3">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="avatar-circle bg-primary me-3">
-                                    {{ substr($personnel->name, 0, 1) }}
-                                </div>
-                                <div>
-                                    <h6 class="mb-0">{{ $personnel->name }}</h6>
-                                    <small class="text-muted">Delivery Personnel</small>
-                                </div>
+    <div class="col-md-3">
+        @component('components.dashboard-card', [
+            'icon' => 'check-circle',
+            'color' => 'success',
+            'title' => 'Completed',
+            'value' => $completedDeliveries,
+            'subtitle' => $completedDeliveries > 0 ? number_format(($completedDeliveries / $totalDeliveries) * 100, 1) . '% completion rate' : '0% completion rate'
+        ])
+        @endcomponent
+    </div>
+    <div class="col-md-3">
+        @component('components.dashboard-card', [
+            'icon' => 'clock-history',
+            'color' => 'warning',
+            'title' => 'Pending',
+            'value' => $pendingDeliveries,
+            'subtitle' => $pendingDeliveries > 0 ? number_format(($pendingDeliveries / $totalDeliveries) * 100, 1) . '% of total' : '0% of total'
+        ])
+        @endcomponent
+    </div>
+    <div class="col-md-3">
+        @component('components.dashboard-card', [
+            'icon' => 'droplet',
+            'color' => 'info',
+            'title' => 'Water Delivered',
+            'value' => $totalQuantity,
+            'subtitle' => 'containers'
+        ])
+        @endcomponent
+    </div>
+</div>
+
+<!-- Delivery Personnel Performance -->
+@component('components.datatable', ['header' => 'Delivery Personnel Performance'])
+    <div class="card-body">
+        <div class="row">
+            @forelse($personnelStats as $personnel)
+            <div class="col-md-4 mb-3">
+                <div class="card h-100">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-3">
+                            <div class="avatar-circle bg-primary me-3">
+                                {{ substr($personnel->name, 0, 1) }}
                             </div>
-                            
-                            <div class="row text-center">
-                                <div class="col-4">
-                                    <div class="fs-4 fw-bold">{{ $personnel->total_deliveries }}</div>
-                                    <small class="text-muted">Deliveries</small>
-                                </div>
-                                <div class="col-4">
-                                    <div class="fs-4 fw-bold">{{ $personnel->completed_deliveries }}</div>
-                                    <small class="text-muted">Completed</small>
-                                </div>
-                                <div class="col-4">
-                                    <div class="fs-4 fw-bold">{{ $personnel->total_quantity }}</div>
-                                    <small class="text-muted">Containers</small>
-                                </div>
+                            <div>
+                                <h6 class="mb-0">{{ $personnel->name }}</h6>
+                                <small class="text-muted">Delivery Personnel</small>
                             </div>
-                            
-                            <div class="mt-3">
-                                <div class="d-flex justify-content-between mb-1 small">
-                                    <span>Completion Rate</span>
-                                    <span>{{ $personnel->total_deliveries > 0 ? number_format(($personnel->completed_deliveries / $personnel->total_deliveries) * 100, 1) : 0 }}%</span>
-                                </div>
-                                <div class="progress" style="height: 6px;">
-                                    <div class="progress-bar bg-success" role="progressbar" 
-                                        style="width: {{ $personnel->total_deliveries > 0 ? ($personnel->completed_deliveries / $personnel->total_deliveries) * 100 : 0 }}%" 
-                                        aria-valuenow="{{ $personnel->total_deliveries > 0 ? ($personnel->completed_deliveries / $personnel->total_deliveries) * 100 : 0 }}" 
-                                        aria-valuemin="0" 
-                                        aria-valuemax="100"></div>
-                                </div>
+                        </div>
+                        
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <div class="fs-4 fw-bold">{{ $personnel->total_deliveries }}</div>
+                                <small class="text-muted">Deliveries</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="fs-4 fw-bold">{{ $personnel->completed_deliveries }}</div>
+                                <small class="text-muted">Completed</small>
+                            </div>
+                            <div class="col-4">
+                                <div class="fs-4 fw-bold">{{ $personnel->total_quantity }}</div>
+                                <small class="text-muted">Containers</small>
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3">
+                            <div class="d-flex justify-content-between mb-1 small">
+                                <span>Completion Rate</span>
+                                <span>{{ $personnel->total_deliveries > 0 ? number_format(($personnel->completed_deliveries / $personnel->total_deliveries) * 100, 1) : 0 }}%</span>
+                            </div>
+                            <div class="progress" style="height: 6px;">
+                                <div class="progress-bar bg-success" role="progressbar" 
+                                    style="width: {{ $personnel->total_deliveries > 0 ? ($personnel->completed_deliveries / $personnel->total_deliveries) * 100 : 0 }}%" 
+                                    aria-valuenow="{{ $personnel->total_deliveries > 0 ? ($personnel->completed_deliveries / $personnel->total_deliveries) * 100 : 0 }}" 
+                                    aria-valuemin="0" 
+                                    aria-valuemax="100"></div>
                             </div>
                         </div>
                     </div>
                 </div>
-                @empty
-                <div class="col-12">
-                    <div class="alert alert-info">
-                        <i class="bi bi-info-circle me-2"></i> No delivery personnel data available for the selected period.
-                    </div>
-                </div>
-                @endforelse
             </div>
+            @empty
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i> No delivery personnel data available for the selected period.
+                </div>
+            </div>
+            @endforelse
         </div>
     </div>
+@endcomponent
+
+<!-- Delivery List Table -->
+@component('components.datatable', ['header' => 'Delivery Details'])
+    <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Order #</th>
+                <th>Customer</th>
+                <th>Delivery Date</th>
+                <th>Personnel</th>
+                <th>Quantity</th>
+                <th>Status</th>
+                <th>Payment</th>
+                <th class="text-end">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            @forelse($deliveries as $delivery)
+            <tr>
+                <td>#{{ $delivery->id }}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="avatar-circle bg-primary me-2">
+                            {{ substr($delivery->customer->name, 0, 1) }}
+                        </div>
+                        <div>{{ $delivery->customer->name }}</div>
+                    </div>
+                </td>
+                <td>
+                    @if($delivery->delivery_date)
+                        {{ Carbon\Carbon::parse($delivery->delivery_date)->format('M d, Y') }}
+                    @else
+                        <span class="badge bg-warning text-dark">Pending</span>
+                    @endif
+                </td>
+                <td>{{ $delivery->deliveryPerson->name ?? 'Not Assigned' }}</td>
+                <td>{{ $delivery->quantity }}</td>
+                <td>
+                    <span class="badge {{ $delivery->order_status == 'pending' ? 'bg-warning text-dark' : 'bg-success' }}">
+                        {{ ucfirst($delivery->order_status) }}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge {{ $delivery->payment_status == 'paid' ? 'bg-success' : 'bg-warning text-dark' }}">
+                        {{ ucfirst($delivery->payment_status) }}
+                    </span>
+                </td>
+                <td class="text-end fw-semibold">₱{{ number_format($delivery->total_amount, 2) }}</td>
+            </tr>
+            @empty
+            <tr>
+                <td colspan="8" class="text-center py-4">
+                    <div class="d-flex flex-column align-items-center">
+                        <i class="bi bi-truck text-muted mb-2" style="font-size: 3rem;"></i>
+                        <p class="text-muted mb-0">No deliveries found for the selected period</p>
+                    </div>
+                </td>
+            </tr>
+            @endforelse
+        </tbody>
+        <tfoot>
+            <tr class="table-light fw-bold">
+                <td colspan="4">Total: {{ $totalDeliveries }} deliveries</td>
+                <td>{{ $totalQuantity }} items</td>
+                <td colspan="2"></td>
+                <td class="text-end">₱{{ number_format($totalDeliveryAmount, 2) }}</td>
+            </tr>
+        </tfoot>
+    </table>
     
-    <!-- Delivery List Table -->
-    <div class="card shadow-sm">
-        <div class="card-header bg-white">
-            <h5 class="card-title mb-0">Delivery Details</h5>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Order #</th>
-                            <th>Customer</th>
-                            <th>Delivery Date</th>
-                            <th>Personnel</th>
-                            <th>Quantity</th>
-                            <th>Status</th>
-                            <th>Payment</th>
-                            <th class="text-end">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($deliveries as $delivery)
-                        <tr>
-                            <td>#{{ $delivery->id }}</td>
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar-circle bg-primary me-2">
-                                        {{ substr($delivery->customer->name, 0, 1) }}
-                                    </div>
-                                    <div>{{ $delivery->customer->name }}</div>
-                                </div>
-                            </td>
-                            <td>
-                                @if($delivery->delivery_date)
-                                    {{ Carbon\Carbon::parse($delivery->delivery_date)->format('M d, Y') }}
-                                @else
-                                    <span class="badge bg-warning text-dark">Pending</span>
-                                @endif
-                            </td>
-                            <td>{{ $delivery->deliveryPerson->name ?? 'Not Assigned' }}</td>
-                            <td>{{ $delivery->quantity }}</td>
-                            <td>
-                                <span class="badge {{ $delivery->order_status == 'pending' ? 'bg-warning text-dark' : 'bg-success' }}">
-                                    {{ ucfirst($delivery->order_status) }}
-                                </span>
-                            </td>
-                            <td>
-                                <span class="badge {{ $delivery->payment_status == 'paid' ? 'bg-success' : 'bg-warning text-dark' }}">
-                                    {{ ucfirst($delivery->payment_status) }}
-                                </span>
-                            </td>
-                            <td class="text-end fw-semibold">₱{{ number_format($delivery->total_amount, 2) }}</td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="8" class="text-center py-4">
-                                <div class="d-flex flex-column align-items-center">
-                                    <i class="bi bi-truck text-muted mb-2" style="font-size: 3rem;"></i>
-                                    <p class="text-muted mb-0">No deliveries found for the selected period</p>
-                                </div>
-                            </td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                    <tfoot>
-                        <tr class="table-light fw-bold">
-                            <td colspan="4">Total: {{ $totalDeliveries }} deliveries</td>
-                            <td>{{ $totalQuantity }} items</td>
-                            <td colspan="2"></td>
-                            <td class="text-end">₱{{ number_format($totalDeliveryAmount, 2) }}</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-        
-        @if($deliveries->hasPages())
-        <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+    @if($deliveries->hasPages())
+    @slot('footer')
+        <div class="d-flex justify-content-between align-items-center">
             <div class="per-page-selector">
                 <span class="me-2">Show:</span>
                 <div class="btn-group btn-group-sm" role="group">
@@ -512,95 +476,95 @@
                 {{ $deliveries->withQueryString()->links() }}
             </div>
         </div>
-        @endif
+    @endslot
+    @endif
+@endcomponent
+
+<!-- Printable Section -->
+<div class="printable-section" style="display: none;">
+    <div class="print-header">
+        <div class="company-name">MI-GAIL WATER</div>
+        <div class="report-title">DELIVERY REPORT</div>
+        <div class="report-period">{{ $startDate->format('M d, Y') }} to {{ $endDate->format('M d, Y') }}</div>
     </div>
     
-    <!-- Printable Section -->
-    <div class="printable-section" style="display: none;">
-        <div class="print-header">
-            <div class="company-name">MI-GAIL WATER</div>
-            <div class="report-title">DELIVERY REPORT</div>
-            <div class="report-period">{{ $startDate->format('M d, Y') }} to {{ $endDate->format('M d, Y') }}</div>
+    <div class="row mb-4">
+        <div class="col-6">
+            <table class="table table-sm table-borderless">
+                <tr>
+                    <th class="text-end">Total Deliveries:</th>
+                    <td>{{ $totalDeliveries }}</td>
+                </tr>
+                <tr>
+                    <th class="text-end">Total Revenue:</th>
+                    <td>₱{{ number_format($totalDeliveryAmount, 2) }}</td>
+                </tr>
+            </table>
         </div>
-        
-        <div class="row mb-4">
-            <div class="col-6">
-                <table class="table table-sm table-borderless">
-                    <tr>
-                        <th class="text-end">Total Deliveries:</th>
-                        <td>{{ $totalDeliveries }}</td>
-                    </tr>
-                    <tr>
-                        <th class="text-end">Total Revenue:</th>
-                        <td>₱{{ number_format($totalDeliveryAmount, 2) }}</td>
-                    </tr>
-                </table>
-            </div>
-            <div class="col-6">
-                <table class="table table-sm table-borderless">
-                    <tr>
-                        <th class="text-end">Completed:</th>
-                        <td>{{ $completedDeliveries }}</td>
-                    </tr>
-                    <tr>
-                        <th class="text-end">Pending:</th>
-                        <td>{{ $pendingDeliveries }}</td>
-                    </tr>
-                </table>
-            </div>
+        <div class="col-6">
+            <table class="table table-sm table-borderless">
+                <tr>
+                    <th class="text-end">Completed:</th>
+                    <td>{{ $completedDeliveries }}</td>
+                </tr>
+                <tr>
+                    <th class="text-end">Pending:</th>
+                    <td>{{ $pendingDeliveries }}</td>
+                </tr>
+            </table>
         </div>
-        
-        <table class="print-table">
-            <thead>
-                <tr>
-                    <th>Order #</th>
-                    <th>Customer</th>
-                    <th>Delivery Date</th>
-                    <th>Personnel</th>
-                    <th>Qty</th>
-                    <th>Status</th>
-                    <th>Payment</th>
-                    <th>Amount</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($deliveries as $delivery)
-                <tr>
-                    <td>#{{ $delivery->id }}</td>
-                    <td>{{ $delivery->customer->name }}</td>
-                    <td>
-                        @if($delivery->delivery_date)
-                            {{ Carbon\Carbon::parse($delivery->delivery_date)->format('M d, Y') }}
-                        @else
-                            Pending
-                        @endif
-                    </td>
-                    <td>{{ $delivery->deliveryPerson->name ?? 'Not Assigned' }}</td>
-                    <td>{{ $delivery->quantity }}</td>
-                    <td>{{ ucfirst($delivery->order_status) }}</td>
-                    <td>{{ ucfirst($delivery->payment_status) }}</td>
-                    <td>₱{{ number_format($delivery->total_amount, 2) }}</td>
-                </tr>
-                @endforeach
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="4"><strong>Total: {{ $totalDeliveries }} deliveries</strong></td>
-                    <td><strong>{{ $totalQuantity }}</strong></td>
-                    <td colspan="2"></td>
-                    <td><strong>₱{{ number_format($totalDeliveryAmount, 2) }}</strong></td>
-                </tr>
-            </tfoot>
-        </table>
-        
-        <div class="print-footer mt-4">
-            <div class="row">
-                <div class="col-6">
-                    <p class="mb-0"><strong>Generated by:</strong> {{ Auth::user()->name }}</p>
-                </div>
-                <div class="col-6 text-end">
-                    <p class="mb-0"><strong>Date Generated:</strong> {{ now()->format('Y-m-d H:i:s') }}</p>
-                </div>
+    </div>
+    
+    <table class="print-table">
+        <thead>
+            <tr>
+                <th>Order #</th>
+                <th>Customer</th>
+                <th>Delivery Date</th>
+                <th>Personnel</th>
+                <th>Qty</th>
+                <th>Status</th>
+                <th>Payment</th>
+                <th>Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($deliveries as $delivery)
+            <tr>
+                <td>#{{ $delivery->id }}</td>
+                <td>{{ $delivery->customer->name }}</td>
+                <td>
+                    @if($delivery->delivery_date)
+                        {{ Carbon\Carbon::parse($delivery->delivery_date)->format('M d, Y') }}
+                    @else
+                        Pending
+                    @endif
+                </td>
+                <td>{{ $delivery->deliveryPerson->name ?? 'Not Assigned' }}</td>
+                <td>{{ $delivery->quantity }}</td>
+                <td>{{ ucfirst($delivery->order_status) }}</td>
+                <td>{{ ucfirst($delivery->payment_status) }}</td>
+                <td>₱{{ number_format($delivery->total_amount, 2) }}</td>
+            </tr>
+            @endforeach
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="4"><strong>Total: {{ $totalDeliveries }} deliveries</strong></td>
+                <td><strong>{{ $totalQuantity }}</strong></td>
+                <td colspan="2"></td>
+                <td><strong>₱{{ number_format($totalDeliveryAmount, 2) }}</strong></td>
+            </tr>
+        </tfoot>
+    </table>
+    
+    <div class="print-footer mt-4">
+        <div class="row">
+            <div class="col-6">
+                <p class="mb-0"><strong>Generated by:</strong> {{ Auth::user()->name ?? 'DuckworthL' }}</p>
+            </div>
+            <div class="col-6 text-end">
+                <p class="mb-0"><strong>Date Generated:</strong> {{ now()->format('Y-m-d H:i:s') }}</p>
             </div>
         </div>
     </div>

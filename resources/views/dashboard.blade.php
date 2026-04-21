@@ -19,7 +19,7 @@
                 <div class="stats-icon text-primary">
                     <i class="bi bi-cash"></i>
                 </div>
-                <h6 class="text-muted mb-2">Today's Sales</h6>
+                <h6 class="text-muted mb-2">Daily Sales</h6>
                 <h3 class="mb-0">₱{{ number_format($todaySales, 2) }}</h3>
                 <div class="mt-2 text-muted">
                     <small>{{ $todayOrders }} orders</small>

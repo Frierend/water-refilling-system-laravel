@@ -306,53 +306,7 @@
     </div>
 </div>
 
-<!-- Summary Stats -->
-<div class="mb-4 no-print">
-    <div class="row g-4">
-        @foreach($currentInventory as $item)
-        <div class="col-md-3 mb-3">
-            @component('components.dashboard-card', [
-                'icon' => $item->type == 'water' ? 'droplet-fill' : ($item->type == 'empty' ? 'droplet' : ($item->type == 'cap' ? 'circle' : 'tag')),
-                'color' => $item->type == 'water' ? 'primary' : ($item->type == 'empty' ? 'secondary' : 'info'),
-                'title' => ucfirst($item->type),
-                'value' => $item->quantity,
-                'subtitle' => 'Last updated: ' . $item->updated_at->format('M d, Y')
-            ])
-            @endcomponent
-        </div>
-        @endforeach
-        <div class="col-md-3 mb-3">
-            @component('components.dashboard-card', [
-                'icon' => 'arrow-down-circle',
-                'color' => 'success',
-                'title' => 'Incoming (Period)',
-                'value' => $totalIncoming,
-                'subtitle' => '+' . ($totalIncoming - $totalOutgoing) . ' net change'
-            ])
-            @endcomponent
-        </div>
-        <div class="col-md-3 mb-3">
-            @component('components.dashboard-card', [
-                'icon' => 'arrow-up-circle',
-                'color' => 'danger',
-                'title' => 'Outgoing (Period)',
-                'value' => $totalOutgoing,
-                'subtitle' => $totalTransactions . ' transactions'
-            ])
-            @endcomponent
-        </div>
-        <div class="col-md-3 mb-3">
-            @component('components.dashboard-card', [
-                'icon' => 'calendar-check',
-                'color' => 'primary',
-                'title' => 'Total Transactions',
-                'value' => $totalTransactions,
-                'subtitle' => 'inventory transactions'
-            ])
-            @endcomponent
-        </div>
-    </div>
-</div>
+
 
 <!-- Current Inventory Levels Table -->
 @component('components.datatable', ['header' => 'Current Inventory Levels'])

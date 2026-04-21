@@ -187,7 +187,8 @@
                                 </a>
                                 <ul class="dropdown-menu shadow-sm">
                                     <li><a class="dropdown-item" href="{{ route('reports.sales') }}">
-                                        <i class="bi bi-currency-dollar me-2"></i>Sales Report
+                                        <i class="bi bi-cash me-2"></i>Sales Report
+                                        
                                     </a></li>
                                     <li><a class="dropdown-item" href="{{ route('reports.delivery') }}">
                                         <i class="bi bi-truck me-2"></i>Delivery Report

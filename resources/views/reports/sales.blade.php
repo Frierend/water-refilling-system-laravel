@@ -15,6 +15,7 @@
         /* Hide browser header/footer content */
         html {
             -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
         
         body * { visibility: hidden; }
@@ -114,18 +115,13 @@
 </div>
 
 <div class="container py-4">
-    <!-- Screen-only header -->
-    <div class="d-flex justify-content-between align-items-center mb-4 no-print">
-        <div>
-            <h1 class="display-6 fw-bold text-primary">
-                <i class="bi bi-graph-up me-2"></i>Sales Report
-            </h1>
-            <p class="text-muted">
-                <i class="bi bi-calendar3"></i> 
-                {{ $startDate->format('M d, Y') }} to {{ $endDate->format('M d, Y') }}
-            </p>
-        </div>
-        <div>
+    <!-- Page Header -->
+    @component('components.page-header', [
+        'icon' => 'graph-up',
+        'title' => 'Sales Report',
+        'subtitle' => $startDate->format('M d, Y') . ' to ' . $endDate->format('M d, Y')
+    ])
+        @slot('actions')
             <div class="btn-group mb-2">
                 <button onclick="window.print()" class="btn btn-outline-dark">
                     <i class="bi bi-printer me-1"></i> Print
@@ -154,8 +150,8 @@
                     </li>
                 </ul>
             </div>
-        </div>
-    </div>
+        @endslot
+    @endcomponent
     
     <!-- Report filters and controls - no-print -->
     <div class="card shadow-sm mb-4 no-print">
@@ -228,57 +224,49 @@
     
     <!-- Summary Stats - no-print -->
     <div class="mb-4 no-print">
-    <div class="row g-4">
-        <div class="col-md-3">
-            <div class="card shadow-sm stats-card bg-white">
-                <div class="stats-icon text-primary">
-                    <i class="bi bi-cash"></i>
-                </div>
-                <h6 class="text-muted mb-2">Total Sales</h6>
-                <h3 class="mb-0">₱{{ number_format($totalSales, 2) }}</h3>
-                <div class="mt-2 text-muted">
-                    <small>{{ $totalOrders }} orders</small>
-                </div>
+        <div class="row g-4">
+            <div class="col-md-3">
+                @component('components.dashboard-card', [
+                    'icon' => 'cash',
+                    'color' => 'primary',
+                    'title' => 'Total Sales',
+                    'value' => '₱' . number_format($totalSales, 2),
+                    'subtitle' => $totalOrders . ' orders'
+                ])
+                @endcomponent
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm stats-card bg-white">
-                <div class="stats-icon text-success">
-                    <i class="bi bi-check-circle"></i>
-                </div>
-                <h6 class="text-muted mb-2">Paid Orders</h6>
-                <h3 class="mb-0">₱{{ number_format($paidSales, 2) }}</h3>
-                <div class="mt-2 text-muted">
-                    <small>{{ $paidOrders }} orders</small>
-                </div>
+            <div class="col-md-3">
+                @component('components.dashboard-card', [
+                    'icon' => 'check-circle',
+                    'color' => 'success',
+                    'title' => 'Paid Orders',
+                    'value' => '₱' . number_format($paidSales, 2),
+                    'subtitle' => $paidOrders . ' orders'
+                ])
+                @endcomponent
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm stats-card bg-white">
-                <div class="stats-icon text-warning">
-                    <i class="bi bi-clock-history"></i>
-                </div>
-                <h6 class="text-muted mb-2">Unpaid Orders</h6>
-                <h3 class="mb-0">₱{{ number_format($unpaidSales, 2) }}</h3>
-                <div class="mt-2 text-muted">
-                    <small>{{ $unpaidOrders }} orders</small>
-                </div>
+            <div class="col-md-3">
+                @component('components.dashboard-card', [
+                    'icon' => 'clock-history',
+                    'color' => 'warning',
+                    'title' => 'Unpaid Orders',
+                    'value' => '₱' . number_format($unpaidSales, 2),
+                    'subtitle' => $unpaidOrders . ' orders'
+                ])
+                @endcomponent
             </div>
-        </div>
-        <div class="col-md-3">
-            <div class="card shadow-sm stats-card bg-white">
-                <div class="stats-icon text-info">
-                    <i class="bi bi-droplet"></i>
-                </div>
-                <h6 class="text-muted mb-2">Water Sold</h6>
-                <h3 class="mb-0">{{ $totalQuantity }}</h3>
-                <div class="mt-2 text-muted">
-                    <small>containers</small>
-                </div>
+            <div class="col-md-3">
+                @component('components.dashboard-card', [
+                    'icon' => 'droplet',
+                    'color' => 'info',
+                    'title' => 'Water Sold',
+                    'value' => $totalQuantity,
+                    'subtitle' => 'containers'
+                ])
+                @endcomponent
             </div>
         </div>
     </div>
-</div>
     
     <!-- Sales Chart - no-print -->
     <div class="card shadow-sm mb-4 no-print">
@@ -292,110 +280,104 @@
         </div>
     </div>
     
-    <div class="card shadow-sm mb-4">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0">Sales Details</h5>
-            <div class="no-print">
-                <span class="text-muted">
-                    {{ $startDate->format('M d, Y') }} to {{ $endDate->format('M d, Y') }}
-                </span>
-            </div>
-        </div>
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>ID</th>
-                            <th>Date</th>
-                            <th>Customer</th>
-                            <th class="no-print">Type</th>
-                            <th>Quantity</th>
-                            <th>Type</th>
-                            <th>Payment</th>
-                            <th class="text-end">Amount</th>
-                            <th class="text-center no-print">Status</th>
-                            <th class="text-end no-print">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($orders as $order)
-                        <tr>
-                            <td>{{ $order->id }}</td>
-                            <td>{{ $order->created_at->format('M d, Y') }}</td>
-                            <td>
-                                <div class="d-flex align-items-center">
-                                    <div class="avatar-circle bg-primary me-2 no-print">
-                                        {{ substr($order->customer->name, 0, 1) }}
-                                    </div>
-                                    <div>{{ $order->customer->name }}</div>
-                                </div>
-                            </td>
-                            <td class="no-print">
-                                @if($order->is_delivery)
-                                <span class="badge bg-info">Delivery</span>
-                                @else
-                                <span class="badge bg-secondary">Pick-up</span>
-                                @endif
-                            </td>
-                            <td>{{ $order->quantity }}</td>
-                            <td>{{ $order->is_delivery ? 'Delivery' : 'Pick-up' }}</td>
-                            <td>{{ ucfirst($order->payment_status) }}</td>
-                            <td class="text-end fw-bold">₱{{ number_format($order->total_amount, 2) }}</td>
-                            <td class="text-center no-print">
-                                <span class="badge {{ $order->payment_status == 'paid' ? 'bg-success' : 'bg-warning text-dark' }}">
-                                    {{ ucfirst($order->payment_status) }}
-                                </span>
-                            </td>
-                            <td class="text-end no-print">
-                                <a href="{{ route('orders.show', $order->id) }}" class="btn btn-sm btn-outline-primary">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="10" class="text-center py-3">No sales data found for the selected period</td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                    <tfoot>
-                        <tr class="table-light fw-bold">
-                            <td></td>
-                            <td colspan="2">Total: {{ $totalOrders }} orders</td>
-                            <td class="no-print"></td>
-                            <td>{{ $totalQuantity }} units</td>
-                            <td colspan="2"></td>
-                            <td class="text-end">₱{{ number_format($totalSales, 2) }}</td>
-                            <td class="no-print"></td>
-                            <td class="no-print"></td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
+    <!-- Sales Details Table -->
+    @component('components.datatable', [
+        'header' => 'Sales Details',
+        'headerActions' => '<span class="text-muted">' . $startDate->format('M d, Y') . ' to ' . $endDate->format('M d, Y') . '</span>'
+    ])
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>ID</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th class="no-print">Type</th>
+                    <th>Quantity</th>
+                    <th>Type</th>
+                    <th>Payment</th>
+                    <th class="text-end">Amount</th>
+                    <th class="text-center no-print">Status</th>
+                    <th class="text-end no-print">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($orders as $order)
+                <tr>
+                    <td>{{ $order->id }}</td>
+                    <td>{{ $order->created_at->format('M d, Y') }}</td>
+                    <td>
+                        <div class="d-flex align-items-center">
+                            <div class="avatar-circle bg-primary me-2 no-print">
+                                {{ substr($order->customer->name, 0, 1) }}
+                            </div>
+                            <div>{{ $order->customer->name }}</div>
+                        </div>
+                    </td>
+                    <td class="no-print">
+                        @if($order->is_delivery)
+                        <span class="badge bg-info">Delivery</span>
+                        @else
+                        <span class="badge bg-secondary">Pick-up</span>
+                        @endif
+                    </td>
+                    <td>{{ $order->quantity }}</td>
+                    <td>{{ $order->is_delivery ? 'Delivery' : 'Pick-up' }}</td>
+                    <td>{{ ucfirst($order->payment_status) }}</td>
+                    <td class="text-end fw-bold">₱{{ number_format($order->total_amount, 2) }}</td>
+                    <td class="text-center no-print">
+                        <span class="badge {{ $order->payment_status == 'paid' ? 'bg-success' : 'bg-warning text-dark' }}">
+                            {{ ucfirst($order->payment_status) }}
+                        </span>
+                    </td>
+                    <td class="text-end no-print">
+                        <a href="{{ route('orders.show', $order->id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="10" class="text-center py-3">No sales data found for the selected period</td>
+                </tr>
+                @endforelse
+            </tbody>
+            <tfoot>
+                <tr class="table-light fw-bold">
+                    <td></td>
+                    <td colspan="2">Total: {{ $totalOrders }} orders</td>
+                    <td class="no-print"></td>
+                    <td>{{ $totalQuantity }} units</td>
+                    <td colspan="2"></td>
+                    <td class="text-end">₱{{ number_format($totalSales, 2) }}</td>
+                    <td class="no-print"></td>
+                    <td class="no-print"></td>
+                </tr>
+            </tfoot>
+        </table>
         
         @if($orders->hasPages())
-        <div class="card-footer bg-white d-flex justify-content-between align-items-center no-print">
-            <div class="per-page-selector">
-                <span class="me-2">Show:</span>
-                <div class="btn-group btn-group-sm" role="group">
-                    <a href="{{ route('reports.sales', array_merge(request()->except('per_page', 'page'), ['per_page' => 10])) }}" 
-                       class="btn {{ $perPage == 10 ? 'btn-primary' : 'btn-outline-secondary' }}">10</a>
-                    <a href="{{ route('reports.sales', array_merge(request()->except('per_page', 'page'), ['per_page' => 20])) }}" 
-                       class="btn {{ $perPage == 20 ? 'btn-primary' : 'btn-outline-secondary' }}">20</a>
-                    <a href="{{ route('reports.sales', array_merge(request()->except('per_page', 'page'), ['per_page' => 50])) }}" 
-                       class="btn {{ $perPage == 50 ? 'btn-primary' : 'btn-outline-secondary' }}">50</a>
-                    <a href="{{ route('reports.sales', array_merge(request()->except('per_page', 'page'), ['per_page' => 100])) }}" 
-                       class="btn {{ $perPage == 100 ? 'btn-primary' : 'btn-outline-secondary' }}">100</a>
+        @slot('footer')
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="per-page-selector">
+                    <span class="me-2">Show:</span>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="{{ route('reports.sales', array_merge(request()->except('per_page', 'page'), ['per_page' => 10])) }}" 
+                           class="btn {{ $perPage == 10 ? 'btn-primary' : 'btn-outline-secondary' }}">10</a>
+                        <a href="{{ route('reports.sales', array_merge(request()->except('per_page', 'page'), ['per_page' => 20])) }}" 
+                           class="btn {{ $perPage == 20 ? 'btn-primary' : 'btn-outline-secondary' }}">20</a>
+                        <a href="{{ route('reports.sales', array_merge(request()->except('per_page', 'page'), ['per_page' => 50])) }}" 
+                           class="btn {{ $perPage == 50 ? 'btn-primary' : 'btn-outline-secondary' }}">50</a>
+                        <a href="{{ route('reports.sales', array_merge(request()->except('per_page', 'page'), ['per_page' => 100])) }}" 
+                           class="btn {{ $perPage == 100 ? 'btn-primary' : 'btn-outline-secondary' }}">100</a>
+                    </div>
+                </div>
+                <div>
+                    {{ $orders->withQueryString()->links() }}
                 </div>
             </div>
-            <div>
-                {{ $orders->withQueryString()->links() }}
-            </div>
-        </div>
+        @endslot
         @endif
-    </div>
+    @endcomponent
     
     <!-- Printable Section - Hidden until printing -->
     <div class="printable-section">
