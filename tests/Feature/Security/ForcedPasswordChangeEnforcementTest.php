@@ -74,11 +74,11 @@ class ForcedPasswordChangeEnforcementTest extends TestCase
         $routeResponse->assertRedirect(route('password.request'));
         $this->assertGuest();
 
-        $user->refresh();
-        $this->assertNotNull($user->lifecycle_locked_at);
-        $this->assertSame('temporary_password_expired', $user->lifecycle_lock_reason);
-        $this->assertSame(0, (int) $user->failed_attempts);
-        $this->assertNull($user->locked_until);
+        $owner->refresh();
+        $this->assertNotNull($owner->lifecycle_locked_at);
+        $this->assertSame('temporary_password_expired', $owner->lifecycle_lock_reason);
+        $this->assertSame(0, (int) $owner->failed_attempts);
+        $this->assertNull($owner->locked_until);
     }
 
     public function test_lifecycle_lock_message_for_non_owner_on_login(): void
