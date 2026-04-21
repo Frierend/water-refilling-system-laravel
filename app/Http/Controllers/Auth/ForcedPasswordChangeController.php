@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Support\Security\PasswordPolicy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -24,6 +25,20 @@ class ForcedPasswordChangeController extends Controller
         }
 
         if ($this->isTemporaryPasswordExpired($user)) {
+            $user->applyLifecycleLock('temporary_password_expired');
+
+            Log::channel('security')->warning('security.lifecycle.locked_forced_password_change_denied', [
+                'category' => 'security',
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'lock_reason' => $user->lifecycle_lock_reason,
+                'temp_password_expires_at' => $user->temp_password_expires_at?->toDateTimeString(),
+                'failed_attempts' => (int) $user->failed_attempts,
+                'locked_until' => $user->locked_until?->toDateTimeString(),
+                'ip' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
+            ]);
+
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -38,7 +53,7 @@ class ForcedPasswordChangeController extends Controller
             ]);
 
             return redirect()->route('login')->withErrors([
-                'email' => 'Your temporary password has expired. Please contact the owner for assistance.',
+                'email' => $user->lifecycleLockMessage(),
             ]);
         }
 
@@ -54,6 +69,20 @@ class ForcedPasswordChangeController extends Controller
         }
 
         if ($this->isTemporaryPasswordExpired($user)) {
+            $user->applyLifecycleLock('temporary_password_expired');
+
+            Log::channel('security')->warning('security.lifecycle.locked_forced_password_change_denied', [
+                'category' => 'security',
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'lock_reason' => $user->lifecycle_lock_reason,
+                'temp_password_expires_at' => $user->temp_password_expires_at?->toDateTimeString(),
+                'failed_attempts' => (int) $user->failed_attempts,
+                'locked_until' => $user->locked_until?->toDateTimeString(),
+                'ip' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
+            ]);
+
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
@@ -68,16 +97,15 @@ class ForcedPasswordChangeController extends Controller
             ]);
 
             return redirect()->route('login')->withErrors([
-                'email' => 'Your temporary password has expired. Please contact the owner for assistance.',
+                'email' => $user->lifecycleLockMessage(),
             ]);
         }
 
         $validated = $request->validate([
-            'password' => $this->passwordRules(),
+            'password' => PasswordPolicy::rules(),
         ], [
             'password.confirmed' => 'Password confirmation does not match.',
             'password.min' => 'The password does not meet the required security policy.',
-            'password.regex' => 'The password does not meet the required security policy.',
         ]);
 
         if (Hash::check($validated['password'], (string) $user->password)) {
@@ -100,6 +128,7 @@ class ForcedPasswordChangeController extends Controller
             'password_changed_at' => now(),
             'temp_password_expires_at' => null,
         ])->save();
+        $user->clearLifecycleLock();
 
         Log::channel('security')->info('security.password.changed.success', [
             'user_id' => $user->id,
@@ -116,36 +145,5 @@ class ForcedPasswordChangeController extends Controller
     {
         return $user->temp_password_expires_at !== null
             && $user->temp_password_expires_at->isPast();
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function passwordRules(): array
-    {
-        $rules = [
-            'required',
-            'string',
-            'confirmed',
-            'min:' . max(1, (int) config('security.password_policy.min_length', 8)),
-        ];
-
-        if ((bool) config('security.password_policy.require_uppercase', true)) {
-            $rules[] = 'regex:/[A-Z]/';
-        }
-
-        if ((bool) config('security.password_policy.require_lowercase', true)) {
-            $rules[] = 'regex:/[a-z]/';
-        }
-
-        if ((bool) config('security.password_policy.require_numbers', true)) {
-            $rules[] = 'regex:/[0-9]/';
-        }
-
-        if ((bool) config('security.password_policy.require_symbols', true)) {
-            $rules[] = 'regex:/[^A-Za-z0-9]/';
-        }
-
-        return $rules;
     }
 }

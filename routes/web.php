@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\ForcedPasswordChangeController;
 use App\Http\Controllers\Auth\ForgotPasswordController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\MfaController;
+use App\Http\Controllers\Auth\MobileVerificationController;
 use App\Http\Controllers\Auth\ResetPasswordController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
@@ -68,6 +69,10 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/mfa/challenge', [MfaController::class, 'challenge'])->name('mfa.challenge');
     Route::post('/mfa/challenge', [MfaController::class, 'verifyChallenge'])->name('mfa.challenge.verify');
+
+    Route::get('/mobile/verify', [MobileVerificationController::class, 'show'])->name('mobile.verification.notice');
+    Route::post('/mobile/verify/send', [MobileVerificationController::class, 'sendOtp'])->name('mobile.verification.send');
+    Route::post('/mobile/verify/confirm', [MobileVerificationController::class, 'verifyOtp'])->name('mobile.verification.verify');
 });
 
 Route::middleware(['auth', 'password.changed'])->group(function () {

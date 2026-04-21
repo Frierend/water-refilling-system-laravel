@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Support\Security\PasswordPolicy;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -30,9 +31,10 @@ class UserManagementController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email',
             'role' => 'required|in:delivery,helper',
+            'temporary_password' => PasswordPolicy::rules(requireConfirmation: false, required: false),
         ]);
 
-        $temporaryPassword = $this->generateTemporaryPassword();
+        $temporaryPassword = (string) ($validated['temporary_password'] ?? $this->generateTemporaryPassword());
         $expiryHours = max(1, (int) config('security.temporary_password.expires_hours', 24));
 
         $user = User::create([
@@ -80,11 +82,17 @@ class UserManagementController extends Controller
 
     private function generateTemporaryPassword(): string
     {
-        if (method_exists(Str::class, 'password')) {
-            return Str::password(20, true, true, true, false);
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $candidate = method_exists(Str::class, 'password')
+                ? Str::password(20, true, true, true, false)
+                : Str::random(24) . '!aA1';
+
+            if (PasswordPolicy::isCompliant($candidate)) {
+                return $candidate;
+            }
         }
 
-        // Fallback keeps entropy high and includes mixed characters.
-        return Str::random(24) . '!A1';
+        // Final deterministic fallback that still satisfies the minimum policy.
+        return 'Temp!Aa1' . Str::random(20);
     }
 }
