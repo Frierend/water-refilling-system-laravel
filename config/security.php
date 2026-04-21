@@ -17,6 +17,22 @@ return [
         'expires_hours' => (int) env('TEMP_PASSWORD_EXPIRES_HOURS', 24),
     ],
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Owner Contact Identity
+    |--------------------------------------------------------------------------
+    |
+    | Owner identity and contact details used in security guidance messages and
+    | account lifecycle communication paths.
+    |
+    */
+
+    'owner' => [
+        'email' => env('OWNER_EMAIL'),
+        'name' => env('OWNER_NAME'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Password Policy
