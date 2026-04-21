@@ -57,9 +57,17 @@ Implemented using Laravel password broker routes + controllers + views:
 - `/forgot-password`
 - `/reset-password/{token}`
 - `POST /reset-password`
+- Recovery path is explicitly used when a temporary password has expired, including for the `owner` account:
+  - Expired temporary-password users are logged out and redirected to `password.request` (Forgot Password)
+  - Recovery requires broker reset + standard post-login controls (email verification middleware and MFA middleware where enabled)
+  - No permanent bypass route is granted for lifecycle flags
+- No backup administrative role is introduced; canonical authority remains `owner`
 
 Evidence:
 - `routes/web.php`
+- `app/Http/Controllers/Auth/LoginController.php`
+- `app/Http/Controllers/Auth/ForcedPasswordChangeController.php`
+- `app/Http/Middleware/EnsurePasswordIsChanged.php`
 - `app/Http/Controllers/Auth/ForgotPasswordController.php`
 - `app/Http/Controllers/Auth/ResetPasswordController.php`
 - `resources/views/auth/forgot-password.blade.php`
@@ -117,15 +125,46 @@ Evidence:
 - `app/Http/Controllers/InventoryController.php`
 - `app/Http/Controllers/DeliveryController.php`
 
+### 2.10 Mobile number verification via OTP challenge storage
+Implemented with user-level mobile verification fields and dedicated OTP challenge storage:
+- `users.mobile_number` and `users.mobile_verified_at`
+- `mobile_verification_otps` table with hashed OTP, expiry, attempts, and consumption timestamp
+- OTP flow endpoints:
+  - `GET /mobile/verify`
+  - `POST /mobile/verify/send`
+  - `POST /mobile/verify/confirm`
+- OTP delivery behavior:
+  - security log event is written when OTP is generated
+  - local-only OTP preview is displayed in UI when `APP_ENV=local`
+
+Important implementation boundary:
+- **Telecom-grade SMS delivery is not enabled in verified code.**
+- No real SMS gateway/provider integration (Twilio, Semaphore, etc.) is implemented here.
+- OTP presentation is currently local-development oriented and/or audit-log oriented only.
+
+Evidence:
+- `database/migrations/2026_04_21_000005_add_mobile_verification_fields_to_users_table.php`
+- `database/migrations/2026_04_21_000006_create_mobile_verification_otps_table.php`
+- `app/Models/MobileVerificationOtp.php`
+- `app/Http/Controllers/Auth/MobileVerificationController.php`
+- `resources/views/auth/mobile-verification.blade.php`
+- `routes/web.php`
+
 ## 3) Audit Logging Taxonomy
 
 ### `security` category
 Includes:
 - authentication failures/lockouts
+- blocked login attempts during active lockout windows
+- account lifecycle expiry locks (temporary password expired)
 - forced-password-change trigger and completion
+- forced-password-change failure paths
+- forgot/reset password request and result events
 - owner account lifecycle actions
 - authorization denials
+- email verification notice/send/fulfillment
 - MFA challenge outcomes and enable/disable actions
+- OTP setup lifecycle (issued/expired/verification failure)
 - reCAPTCHA-related gate failures
 
 ### `system` category
@@ -133,6 +172,25 @@ Includes:
 - order activity (created/updated/completed/cancelled/walk-in)
 - inventory item and stock adjustment activity
 - delivery completion/cancellation events
+- customer operations (create/update/delete/delete-blocked)
+
+### 3.1 Logging Event Matrix (Controller/Middleware Coverage)
+
+| Category | Event family | Event names (implemented) | Primary implementation points |
+|---|---|---|---|
+| security | Failed logins / lockouts / blocked locked-period logins | `auth.login.failed`, `auth.account.locked`, `auth.login.locked_blocked` | `app/Http/Controllers/Auth/LoginController.php` |
+| security | Lifecycle expiry locks | `security.account.lifecycle.expiry.locked` | `app/Http/Controllers/Auth/LoginController.php`, `app/Http/Controllers/Auth/ForcedPasswordChangeController.php`, `app/Http/Middleware/EnsurePasswordIsChanged.php` |
+| security | Forced change trigger/success/failure | `security.forced_password_change.triggered`, `security.password.changed.success`, `security.forced_password_change.failed` | `app/Http/Controllers/Auth/LoginController.php`, `app/Http/Middleware/EnsurePasswordIsChanged.php`, `app/Http/Controllers/Auth/ForcedPasswordChangeController.php` |
+| security | Forgot/reset requests and results | `security.password.forgot.requested`, `security.password.forgot.sent`, `security.password.forgot.failed`, `security.password.reset.success`, `security.password.reset.failed` | `app/Http/Controllers/Auth/ForgotPasswordController.php`, `app/Http/Controllers/Auth/ResetPasswordController.php` |
+| security | Email verification send/fulfill/notice | `security.email.verification.notice.viewed`, `security.email.verification.sent`, `security.email.verification.fulfilled` | `routes/web.php` |
+| security | MFA enable/challenge/disable | `security.mfa.challenge.requested`, `security.mfa.challenge.passed`, `security.mfa.challenge.failed`, `security.mfa.challenge.required`, `security.mfa.enabled`, `security.mfa.disabled`, `security.mfa.disable.failed` | `app/Http/Controllers/Auth/MfaController.php`, `app/Http/Middleware/EnsureMfaIsVerified.php` |
+| security | OTP lifecycle | `security.otp.setup.issued`, `security.otp.setup.expired`, `security.otp.setup.verification.failed` | `app/Http/Controllers/Auth/MfaController.php` |
+| security | Unauthorized access | `security.authorization.denied` | `app/Http/Middleware/CheckRole.php`, `app/Http/Controllers/OrderController.php`, `app/Http/Controllers/InventoryController.php`, `app/Http/Controllers/DeliveryController.php` |
+| system | User creation (operational) | `security.user.created_by_owner`, `security.temporary_password.issued` (security-classified lifecycle events for operational user onboarding) | `app/Http/Controllers/UserManagementController.php` |
+| system | Orders | `order.created`, `order.updated`, `order.walkin.created`, `order.completed`, `order.cancelled` | `app/Http/Controllers/OrderController.php` |
+| system | Inventory | `inventory.item.created`, `inventory.item.adjusted`, `inventory.item.deleted` | `app/Http/Controllers/InventoryController.php` |
+| system | Deliveries | `delivery.completed`, `delivery.cancelled` | `app/Http/Controllers/DeliveryController.php` |
+| system | Customer operations | `customer.created`, `customer.updated`, `customer.deleted`, `customer.delete.blocked.has_orders` | `app/Http/Controllers/CustomerController.php` |
 
 ## 4) Access Control Terminology (Canonical)
 - Project: **Mi-Gail Water System**
@@ -521,6 +579,55 @@ Not implemented in verified code:
 
 ---
 
+## 15) Local Owner Identity + SMTP Setup (Gmail App Password)
+
+This section is the canonical local setup for account lifecycle and SMTP email flows (verification + password reset), verified against:
+- `config/security.php` (`OWNER_EMAIL`, optional `OWNER_NAME`)
+- `config/mail.php` (`MAIL_*`, fallback usage with owner identity)
+- Auth flows that surface owner-contact guidance when temporary passwords expire
+
+### 15.1 `.env` keys to set locally
+
+Edit your local `.env` (not `.env.example`) and set:
+
+```dotenv
+OWNER_EMAIL=owner@example.com
+OWNER_NAME="Mi-Gail Owner"
+
+MAIL_MAILER=smtp
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your_gmail_address@gmail.com
+MAIL_PASSWORD=your_16_char_gmail_app_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=your_gmail_address@gmail.com
+MAIL_FROM_NAME="Mi-Gail Water System"
+```
+
+Notes:
+- `OWNER_NAME` is optional; leave blank if you only want email-based owner contact.
+- Keep placeholder values in `.env.example`; never commit real credentials.
+
+### 15.2 Step-by-step Gmail app-password setup (local development)
+
+1. Sign in to the Gmail account you will use as SMTP sender (`MAIL_USERNAME` / `MAIL_FROM_ADDRESS`).
+2. Enable Google 2-Step Verification on that account (required before app passwords are available).
+3. Open **Google Account → Security → App passwords**.
+4. Create an app password (choose **Mail** + your device, or a custom label like `Mi-Gail Local SMTP`).
+5. Copy the generated 16-character password immediately (Google only shows it once).
+6. Paste that value into `MAIL_PASSWORD` in your local `.env`.
+7. Set `MAIL_ENCRYPTION=tls` and `MAIL_PORT=587` for Gmail SMTP submission.
+8. Run `php artisan config:clear` after editing `.env` so Laravel reloads settings.
+9. Test with email verification or forgot-password flow from a local account.
+
+### 15.3 Security guardrails
+
+- Do not commit `.env`.
+- Do not replace placeholders in `.env.example` with real secrets.
+- Rotate the Gmail app password immediately if it is exposed.
+
+---
+
 ## 15) Consolidation / Archival Guidance for Legacy Docs
 
 Recommended post-consolidation document status:
@@ -547,88 +654,3 @@ Re-verified from code:
 - Security-focused test presence and scope
 
 Where conflicts existed, this file preserved code-verified behavior and marked discrepancies.
-
-
----
-
-## 17) Local Backup and Retention Automation (Verified)
-
-### 17.1 Implemented Artisan commands
-
-The project now includes dedicated local backup commands:
-
-- `php artisan backup:run-local`
-  - Creates a timestamped ZIP archive under `storage/app/backups`
-  - Includes a database dump (`database.sql` for MySQL/PostgreSQL; SQLite file copy when using SQLite)
-  - Includes critical logs matched by patterns:
-    - `security*.log`
-    - `system*.log`
-    - `laravel*.log`
-  - Supports optional storage artifact inclusion via either:
-    - `--include-storage` flag, or
-    - `LOCAL_BACKUP_INCLUDE_STORAGE=true`
-  - Generates archive checksum file (`.sha256`) and a manifest with per-file SHA-256 entries
-
-- `php artisan backup:prune-local --days=7`
-  - Deletes `.zip` and `.zip.sha256` backup artifacts older than the specified retention period
-  - Cleans stale temporary backup working directories
-
-### 17.2 Storage path and naming
-
-- Root backup path: `storage/app/backups` (configurable with `LOCAL_BACKUP_PATH`)
-- Archive naming: `backup_YYYYmmdd_HHMMSS.zip`
-- Checksum naming: `backup_YYYYmmdd_HHMMSS.zip.sha256`
-
-### 17.3 Scheduler configuration (app/Console/Kernel.php)
-
-Configured schedule:
-
-- `backup:run-local` every 15 minutes
-- `backup:prune-local --days=7` daily at `01:00`
-
-### 17.4 Windows/XAMPP/Laragon scheduler setup
-
-Use Windows Task Scheduler to run Laravel's scheduler continuously through `schedule:run`.
-
-1. Open **Task Scheduler** → **Create Task...**
-2. **General** tab:
-   - Name: `Mi-Gail Laravel Scheduler`
-   - Choose **Run whether user is logged on or not**
-3. **Triggers** tab:
-   - New trigger: **Daily**
-   - Repeat task every: **1 minute**
-   - Duration: **Indefinitely**
-4. **Actions** tab:
-   - Action: **Start a program**
-   - Program/script: path to PHP executable
-     - Example (XAMPP): `C:\xampp\php\php.exe`
-     - Example (Laragon): `C:\laragon\bin\php\php-8.x.x\php.exe`
-   - Add arguments:
-     - `artisan schedule:run`
-   - Start in:
-     - `<project-path>` (example: `C:\xampp\htdocs\water-refilling-system-laravel`)
-5. **Conditions** tab:
-   - Uncheck **Start the task only if the computer is on AC power** (optional for laptops)
-6. **Settings** tab:
-   - Enable **Allow task to be run on demand**
-   - Enable **If the task fails, restart every** (recommended)
-
-#### Optional direct tasks (fallback)
-
-If Task Scheduler cannot run every minute in a given environment, create explicit recurring tasks for:
-
-- `php artisan backup:run-local` (every 15 minutes)
-- `php artisan backup:prune-local --days=7` (daily)
-
-Preferred approach remains `schedule:run` every minute so all schedule definitions stay centralized in `app/Console/Kernel.php`.
-
-### 17.5 Backup-related env/config knobs
-
-- `LOCAL_BACKUP_PATH`
-- `LOCAL_BACKUP_RETENTION_DAYS`
-- `LOCAL_BACKUP_INCLUDE_STORAGE`
-- `LOCAL_BACKUP_STORAGE_PATHS` (comma-separated paths under `storage/app`)
-- `LOCAL_BACKUP_DUMP_TIMEOUT_SECONDS`
-- `BACKUP_MYSQLDUMP_BINARY`
-- `BACKUP_PG_DUMP_BINARY`
-
