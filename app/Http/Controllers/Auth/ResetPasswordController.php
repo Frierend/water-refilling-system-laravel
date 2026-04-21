@@ -36,6 +36,8 @@ class ResetPasswordController extends Controller
                     'must_change_password' => false,
                     'password_changed_at' => now(),
                     'temp_password_expires_at' => null,
+                    'lifecycle_locked_at' => null,
+                    'lifecycle_lock_reason' => null,
                 ])->save();
 
                 event(new PasswordReset($user));
