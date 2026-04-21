@@ -125,6 +125,31 @@ Evidence:
 - `app/Http/Controllers/InventoryController.php`
 - `app/Http/Controllers/DeliveryController.php`
 
+### 2.10 Mobile number verification via OTP challenge storage
+Implemented with user-level mobile verification fields and dedicated OTP challenge storage:
+- `users.mobile_number` and `users.mobile_verified_at`
+- `mobile_verification_otps` table with hashed OTP, expiry, attempts, and consumption timestamp
+- OTP flow endpoints:
+  - `GET /mobile/verify`
+  - `POST /mobile/verify/send`
+  - `POST /mobile/verify/confirm`
+- OTP delivery behavior:
+  - security log event is written when OTP is generated
+  - local-only OTP preview is displayed in UI when `APP_ENV=local`
+
+Important implementation boundary:
+- **Telecom-grade SMS delivery is not enabled in verified code.**
+- No real SMS gateway/provider integration (Twilio, Semaphore, etc.) is implemented here.
+- OTP presentation is currently local-development oriented and/or audit-log oriented only.
+
+Evidence:
+- `database/migrations/2026_04_21_000005_add_mobile_verification_fields_to_users_table.php`
+- `database/migrations/2026_04_21_000006_create_mobile_verification_otps_table.php`
+- `app/Models/MobileVerificationOtp.php`
+- `app/Http/Controllers/Auth/MobileVerificationController.php`
+- `resources/views/auth/mobile-verification.blade.php`
+- `routes/web.php`
+
 ## 3) Audit Logging Taxonomy
 
 ### `security` category
