@@ -15,9 +15,11 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $fillable = [
         'name',
         'email',
+        'mobile_number',
         'password',
         'role',
         'email_verified_at',
+        'mobile_verified_at',
         'failed_attempts',
         'locked_until',
         'must_change_password',
@@ -35,6 +37,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'mobile_verified_at' => 'datetime',
         'locked_until' => 'datetime',
         'must_change_password' => 'boolean',
         'password_changed_at' => 'datetime',
