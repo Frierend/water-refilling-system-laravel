@@ -88,9 +88,18 @@ class LoginController extends Controller
                     $request->session()->invalidate();
                     $request->session()->regenerateToken();
 
-                    return back()->withErrors([
-                        'email' => 'Your temporary password has expired. Please contact the owner for assistance.',
-                    ])->onlyInput('email');
+                    Log::channel('security')->warning('security.temporary_password.expired_recovery_required', [
+                        'user_id' => $authenticatedUser->id,
+                        'email' => $authenticatedUser->email,
+                        'role' => $authenticatedUser->role,
+                        'recovery_route' => route('password.request'),
+                        'ip' => $request->ip(),
+                        'user_agent' => (string) $request->userAgent(),
+                    ]);
+
+                    return redirect()->route('password.request')->with('status',
+                        'Your temporary password has expired. Use Forgot Password to recover access. After reset, verify your email before continuing.'
+                    );
                 }
 
                 Log::channel('security')->info('security.forced_password_change.triggered', [

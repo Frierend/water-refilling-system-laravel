@@ -46,8 +46,30 @@ class ForcedPasswordChangeEnforcementTest extends TestCase
             'password' => 'password',
         ]);
 
-        $response->assertRedirect('/login');
-        $response->assertSessionHasErrors(['email']);
+        $response->assertRedirect(route('password.request'));
+        $response->assertSessionHas('status');
+        $this->assertGuest();
+    }
+
+    public function test_owner_with_expired_temporary_password_is_redirected_to_forgot_password_recovery_route(): void
+    {
+        $owner = $this->createUser([
+            'role' => 'owner',
+            'must_change_password' => true,
+            'temp_password_expires_at' => now()->subMinute(),
+        ]);
+
+        $loginResponse = $this->post('/login', [
+            'email' => $owner->email,
+            'password' => 'password',
+        ]);
+
+        $loginResponse->assertRedirect(route('password.request'));
+        $this->assertGuest();
+
+        $this->actingAs($owner);
+        $routeResponse = $this->get('/dashboard');
+        $routeResponse->assertRedirect(route('password.request'));
         $this->assertGuest();
     }
 
