@@ -17,6 +17,22 @@ return [
         'expires_hours' => (int) env('TEMP_PASSWORD_EXPIRES_HOURS', 24),
     ],
 
+
+    /*
+    |--------------------------------------------------------------------------
+    | Owner Contact Identity
+    |--------------------------------------------------------------------------
+    |
+    | Owner identity and contact details used in security guidance messages and
+    | account lifecycle communication paths.
+    |
+    */
+
+    'owner' => [
+        'email' => env('OWNER_EMAIL'),
+        'name' => env('OWNER_NAME'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Password Policy
@@ -33,6 +49,16 @@ return [
         'require_lowercase' => filter_var(env('SECURITY_PASSWORD_REQUIRE_LOWERCASE', true), FILTER_VALIDATE_BOOLEAN),
         'require_numbers' => filter_var(env('SECURITY_PASSWORD_REQUIRE_NUMBERS', true), FILTER_VALIDATE_BOOLEAN),
         'require_symbols' => filter_var(env('SECURITY_PASSWORD_REQUIRE_SYMBOLS', true), FILTER_VALIDATE_BOOLEAN),
+        /*
+        |--------------------------------------------------------------------------
+        | Local / Offline Common Password Denylist
+        |--------------------------------------------------------------------------
+        |
+        | Keep this list sourced from config files so policy enforcement works
+        | consistently without internet access.
+        |
+        */
+        'common_password_denylist' => require __DIR__ . '/security_password_denylist.php',
     ],
 
 ];

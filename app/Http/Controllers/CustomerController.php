@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class CustomerController extends Controller
 {
@@ -99,7 +100,14 @@ class CustomerController extends Controller
             $validated['is_regular'] = false;
         }
         
-        Customer::create($validated);
+        $customer = Customer::create($validated);
+
+        Log::channel('system')->info('customer.created', [
+            'customer_id' => $customer->id,
+            'is_regular' => (bool) $customer->is_regular,
+            'performed_by' => $request->user()?->id,
+            'ip' => $request->ip(),
+        ]);
         
         return redirect()->route('customers.index')
             ->with('success', 'Customer created successfully.');
@@ -150,6 +158,13 @@ class CustomerController extends Controller
         }
         
         $customer->update($validated);
+
+        Log::channel('system')->info('customer.updated', [
+            'customer_id' => $customer->id,
+            'is_regular' => (bool) $customer->is_regular,
+            'performed_by' => $request->user()?->id,
+            'ip' => $request->ip(),
+        ]);
         
         return redirect()->route('customers.show', $customer)
             ->with('success', 'Customer updated successfully.');
@@ -161,15 +176,28 @@ class CustomerController extends Controller
      * @param  \App\Models\Customer  $customer
      * @return \Illuminate\Http\RedirectResponse
      */
-    public function destroy(Customer $customer)
+    public function destroy(Request $request, Customer $customer)
     {
         // Check if customer has orders
         if ($customer->orders()->count() > 0) {
+            Log::channel('system')->warning('customer.delete.blocked.has_orders', [
+                'customer_id' => $customer->id,
+                'performed_by' => $request->user()?->id,
+                'ip' => $request->ip(),
+            ]);
+
             return redirect()->back()
                 ->with('error', 'This customer has orders and cannot be deleted.');
         }
         
+        $deletedCustomerId = $customer->id;
         $customer->delete();
+
+        Log::channel('system')->info('customer.deleted', [
+            'customer_id' => $deletedCustomerId,
+            'performed_by' => $request->user()?->id,
+            'ip' => $request->ip(),
+        ]);
         
         return redirect()->route('customers.index')
             ->with('success', 'Customer deleted successfully.');
