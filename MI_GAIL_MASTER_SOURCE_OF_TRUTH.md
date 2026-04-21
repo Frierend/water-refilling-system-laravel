@@ -1,0 +1,381 @@
+# Mi-Gail Water System — Master Source of Truth
+
+> Canonical project documentation for the **Mi-Gail Water System**.  
+> Date of verification (static repository inspection): **April 21, 2026**.
+
+---
+
+## 1) Document Authority and Scope
+
+This file is the single authoritative documentation source for this repository. It consolidates and supersedes overlapping project/evaluator documentation content from:
+
+- `README.md`
+- `AUDIT_REPORT.md`
+- `IMPLEMENTATION_CHECKLIST.md`
+- `SECURITY_DOCUMENTATION.md`
+- `SECURITY.md` (where applicable)
+- `Project Criteria.docx` (rubric)
+- `Final Docs (IT12).docx` (project documentation template/basis)
+
+If any of the above documents conflict with verified code behavior, this master file prefers **verified code** and records the mismatch.
+
+---
+
+## 2) Project Overview
+
+- **Project name:** Mi-Gail Water System
+- **Domain:** Sales, delivery, inventory, customer management, and reporting for a water-refilling business
+- **Framework:** Laravel 10 (`laravel/framework` `^10.10` via `composer.json`)
+- **Language/runtime:** PHP 8.1+
+- **Core modules:**
+  - Authentication and account lifecycle security
+  - Dashboard
+  - Customers
+  - Orders (including walk-in)
+  - Deliveries
+  - Inventory + inventory transactions
+  - Reports + exports
+
+---
+
+## 3) System Description (Verified)
+
+### 3.1 Route map (web)
+Verified from `routes/web.php`:
+
+- Public:
+  - `GET /` welcome
+  - `GET /login`, `POST /login`, `POST /logout`
+- Protected group with `auth` + `password.changed` middleware:
+  - Forced password change routes: `GET/POST /force-password-change`
+  - Owner-only user creation: `GET /users/create`, `POST /users`
+  - Dashboard: `GET /dashboard`
+  - Customers: resource routes + `GET /api/customers/search`
+  - Orders: resource routes, walk-in routes, complete/cancel routes
+  - Deliveries: list/show/complete/cancel routes
+  - Inventory: CRUD + adjust + low-stock + export
+  - Reports: sales/delivery/customer/inventory + export endpoints
+
+### 3.2 Middleware and request-security chain
+Verified from `app/Http/Kernel.php` and middleware classes:
+
+- Global middleware includes:
+  - `SecurityHeaders` (custom)
+  - CORS handler
+  - CSRF in web group
+- Custom aliases:
+  - `role` → `CheckRole`
+  - `password.changed` → `EnsurePasswordIsChanged`
+
+### 3.3 Primary business entities
+Verified from models + migrations:
+
+- `users`: role-based accounts (`owner`, `delivery`, `helper`)
+- `customers`
+- `orders`
+- `inventory_items`
+- `inventory_transactions`
+- Laravel defaults: `password_reset_tokens`, `failed_jobs`, `personal_access_tokens`
+
+### 3.4 Business process implementation status
+
+Implemented in code:
+- Sales order capture and management (delivery + walk-in)
+- Delivery workflow (`pending/completed/cancelled`)
+- Inventory deductions/additions through transaction records
+- Customer CRUD with search/filter/sort
+- Report pages (sales, delivery, customer, inventory)
+- CSV and selected PDF exports
+
+Partially/Deferred:
+- Full password-reset flow (token/email routes not implemented)
+- MFA, CAPTCHA, and email-verification enforcement not implemented
+- Dedicated split of audit channel into `security` and `system` channels not implemented (currently single `audit` channel)
+
+---
+
+## 4) Platform and Technologies Used
+
+Verified from `composer.json`, `package.json`, and code:
+
+- Backend: Laravel 10, Eloquent ORM, Blade templates
+- DB: MySQL/MariaDB-oriented migrations; SQLite guarded handling in enum migration
+- Frontend: Blade + Bootstrap + Chart.js + Vite
+- Export/PDF: `barryvdh/laravel-dompdf`
+- Auth/session: Laravel session auth with custom login/account-lifecycle logic
+- Tests: PHPUnit feature tests under `tests/Feature/Security/*`
+
+---
+
+## 5) Access Control / RBAC
+
+### 5.1 Role model (authoritative terminology)
+
+- **Administrative authority:** `owner`
+- **Operational roles:** `delivery`, `helper`
+
+### 5.2 Legacy `admin` references
+
+Legacy `admin` references still appear in code (e.g., middleware role strings and `isAdmin()` helper). In this codebase, `isAdmin()` resolves to `isOwner()`, so `owner` is the effective administrative authority.
+
+### 5.3 Enforcement examples
+
+- Owner-only user creation routes use `role:owner`
+- Reports use `role:owner,admin` (legacy compatibility in middleware argument)
+- Inventory/customer restrictions deny certain operations for `delivery`
+
+---
+
+## 6) Security Policies and Controls (Verified)
+
+### 6.1 Authentication and lockout
+
+Verified from `LoginController`, `config/auth.php`, migrations:
+- Login lockout controls:
+  - `max_attempts` (default 5)
+  - `lock_minutes` (default 5)
+- Tracks and enforces:
+  - `failed_attempts`
+  - `locked_until`
+
+### 6.2 Account lifecycle / forced password change
+
+Verified from `UserManagementController`, `ForcedPasswordChangeController`, `EnsurePasswordIsChanged`, `config/security.php`:
+- Owner creates `delivery`/`helper` user with generated temporary password
+- Temporary password is stored hashed; shown once via session flash
+- New user flagged with:
+  - `must_change_password = true`
+  - `temp_password_expires_at`
+- Flagged users are redirected to forced-change flow
+- Password policy driven by config:
+  - min length, upper/lower/number/symbol requirements
+- Reuse prevention: new password cannot equal current hash
+
+### 6.3 Header hardening
+
+Verified from `SecurityHeaders` middleware:
+- `X-Frame-Options: SAMEORIGIN`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy` restrictions
+- Conditional HSTS on secure requests
+
+### 6.4 Input validation / allowlisting
+
+Controllers consistently validate critical inputs for:
+- login/authentication paths
+- account creation + password change
+- report filters (period/status/driver/type/per_page)
+- export format allowlists
+- order/inventory/customer mutation inputs
+
+### 6.5 Transaction safety
+
+Write-heavy operations in orders and inventory are transaction-wrapped with rollback paths.
+
+---
+
+## 7) Incident Response Plan (Current + Operational Guidance)
+
+### 7.1 Current in-code incident-support capabilities
+
+- Structured audit events in `audit` channel (`storage/logs/audit*.log`)
+- Account lockout telemetry (`auth.login.failed`, `auth.account.locked`, `auth.login.locked_blocked`)
+- Account lifecycle events (`security.*` events)
+- Business operation events for order/delivery/inventory actions
+
+### 7.2 Minimum incident response procedure (documented process)
+
+1. **Detect:** Monitor `audit` channel for high-risk patterns (repeated failed logins, lockouts, unauthorized attempts).
+2. **Triage:** Identify actor, IP, user-agent, timestamp, and affected account/module.
+3. **Contain:** Disable/rotate affected credentials, force password reset by owner workflow when needed.
+4. **Eradicate/Recover:** Fix root cause (misconfiguration/access issue), verify normal login/business operations.
+5. **Post-incident review:** Record timeline, root cause, corrective action, and prevention tasks.
+
+### 7.3 Gaps / deferred IR enhancements
+
+- No documented automated alerting pipeline (e.g., SIEM/webhook) in repository.
+- No dedicated incident runbook file beyond this master documentation.
+
+---
+
+## 8) Audit Logging (Required Categories)
+
+The project must document two categories: **`security`** and **`system`**.
+
+### 8.1 Current implementation state
+
+- Logging channel configured in `config/logging.php`: **single `audit` daily channel**.
+- Event naming inside this channel already naturally separates categories by prefix.
+
+### 8.2 Category map (authoritative)
+
+#### A) `security` audit events (implemented in event naming)
+
+Includes, and verified in controllers:
+- authentication attempts and failures (`auth.login.failed`)
+- lockout events (`auth.account.locked`, `auth.login.locked_blocked`)
+- forced password change trigger (`security.forced_password_change.triggered`)
+- password change success (`security.password.changed.success`)
+- owner-created account lifecycle events (`security.user.created_by_owner`, `security.temporary_password.issued`)
+
+Unauthorized-access attempts:
+- Unauthorized role access currently redirects/aborts, but explicit structured unauthorized-attempt logging is limited and should be expanded.
+
+#### B) `system` audit events (implemented in event naming)
+
+Includes, and verified in controllers:
+- order activity (`order.created`, `order.updated`, `order.completed`, `order.cancelled`, `order.walkin.created`)
+- inventory changes (`inventory.item.created`, `inventory.item.adjusted`, `inventory.item.deleted`)
+- delivery updates (`delivery.completed`, `delivery.cancelled`)
+- customer operational events: customer CRUD exists; explicit customer audit events are limited and can be expanded.
+
+### 8.3 Required improvement (deferred)
+
+Implement dedicated channels (or stacks) for `security` and `system` while preserving current event taxonomy for backward compatibility.
+
+---
+
+## 9) Verification and Testing Evidence
+
+### 9.1 Verified test coverage (from repository tests)
+
+Security-focused feature tests are present for:
+- login lockout behavior
+- forced password change enforcement and completion
+- owner-only user creation and lifecycle controls
+- report input validation
+- export endpoint behavior
+
+Files:
+- `tests/Feature/Security/LoginLockoutTest.php`
+- `tests/Feature/Security/ForcedPasswordChangeEnforcementTest.php`
+- `tests/Feature/Security/AdminUserCreationTest.php`
+- `tests/Feature/Security/ReportInputValidationTest.php`
+- `tests/Feature/Security/ExportEndpointsTest.php`
+
+### 9.2 Evidence provenance note
+
+Prior docs claim `php artisan test` and migration preflight passes on **April 21, 2026**. In this update cycle, documentation was verified by static code inspection; no new runtime execution evidence is added here.
+
+---
+
+## 10) Criteria Alignment (Rubric-Based)
+
+Based on `Project Criteria.docx` and verified code evidence:
+
+1. **Secure coding practices:** generally present (env-driven configs, validation, no plaintext password storage in DB).
+2. **Authentication system:** implemented with hashing and lockout; MFA/CAPTCHA not implemented.
+3. **Authorization/RBAC:** implemented with role middleware and role helpers; legacy `admin` compatibility needs cleanup.
+4. **Data protection:** hashing for passwords; TLS/HSTS depends on deployment transport and secure requests.
+5. **Input validation:** implemented on critical controllers/routes.
+6. **Audit/accountability:** strong event coverage, but channel split (`security` vs `system`) still pending.
+7. **HTTP hardening:** security headers middleware enabled globally.
+8. **CORS hardening:** explicit allowlist-based config present.
+9. **Automated security verification:** targeted feature tests included.
+10. **Migration safety:** enum migration includes DB-driver guards and idempotent behavior.
+
+---
+
+## 11) Code-vs-Documentation Mismatches
+
+1. **Role naming mismatch (legacy admin references):**
+   - Schema roles are `owner`, `delivery`, `helper`.
+   - Some checks/middleware still reference `admin` for compatibility.
+   - Canonical administrative term is **owner**.
+
+2. **Inventory `empty` type evolution:**
+   - Base inventory migration initially lacked `empty` enum value.
+   - Later migration adds `empty` with driver-safe/idempotent approach.
+   - Code uses `empty` item logic in order flows.
+
+3. **Audit channel taxonomy:**
+   - Documentation requirement asks `security` and `system` categories.
+   - Code currently logs to one `audit` channel with category-like event names.
+
+4. **Feature claims from historical docs:**
+   - Some historical docs mention future/deferred controls; this master file marks deferred items explicitly as **not implemented**.
+
+---
+
+## 12) Deferred Items
+
+Not implemented in verified code:
+
+- Forgot-password broker/email reset flow
+- Email verification enforcement
+- CAPTCHA (e.g., reCAPTCHA)
+- MFA
+- Dedicated split log channels for `security` and `system`
+- Broader structured logging of unauthorized-access attempts and customer CRUD operations
+
+---
+
+## 13) Known Limitations
+
+- Test suite includes strong security-focused feature coverage but no broad integration matrix for all DB-engine edge cases.
+- Legacy compatibility references to `admin` can cause conceptual confusion for maintainers/evaluators.
+- Some capabilities are present in workflow but not yet fully normalized in policy/log channel separation.
+
+---
+
+## 14) Evidence Pointers (Quick Index)
+
+- Routes: `routes/web.php`
+- Kernel/middleware: `app/Http/Kernel.php`, `app/Http/Middleware/*`
+- Auth/account lifecycle:
+  - `app/Http/Controllers/Auth/LoginController.php`
+  - `app/Http/Controllers/Auth/ForcedPasswordChangeController.php`
+  - `app/Http/Controllers/UserManagementController.php`
+  - `app/Http/Middleware/EnsurePasswordIsChanged.php`
+  - `config/security.php`, `config/auth.php`
+- RBAC and role model: `app/Http/Middleware/CheckRole.php`, `app/Models/User.php`
+- Business modules:
+  - `app/Http/Controllers/OrderController.php`
+  - `app/Http/Controllers/DeliveryController.php`
+  - `app/Http/Controllers/InventoryController.php`
+  - `app/Http/Controllers/CustomerController.php`
+  - `app/Http/Controllers/ReportController.php`
+- Logging config: `config/logging.php`
+- Schema/migrations:
+  - `database/migrations/2025_05_01_140313_create_users_table.php`
+  - `database/migrations/2026_04_21_000002_add_login_lock_fields_to_users_table.php`
+  - `database/migrations/2026_04_21_000003_add_account_lifecycle_fields_to_users_table.php`
+  - `database/migrations/2025_05_01_140315_create_inventory_items_table.php`
+  - `database/migrations/2026_04_21_000001_add_empty_type_to_inventory_items_enum.php`
+- Security verification tests:
+  - `tests/Feature/Security/LoginLockoutTest.php`
+  - `tests/Feature/Security/ForcedPasswordChangeEnforcementTest.php`
+  - `tests/Feature/Security/AdminUserCreationTest.php`
+  - `tests/Feature/Security/ReportInputValidationTest.php`
+  - `tests/Feature/Security/ExportEndpointsTest.php`
+
+---
+
+## 15) Consolidation / Archival Guidance for Legacy Docs
+
+Recommended post-consolidation document status:
+
+- `AUDIT_REPORT.md` → **Deprecated** (replace with pointer to this master file)
+- `IMPLEMENTATION_CHECKLIST.md` → **Deprecated** (pointer)
+- `SECURITY_DOCUMENTATION.md` → **Deprecated** (pointer)
+- `README.md` → **Keep concise** with quickstart + pointer to this master file
+
+---
+
+## 16) Consolidation Summary (What was merged and what was verified)
+
+Merged from existing docs:
+- Prior audit conclusions and criteria mapping
+- Security and implementation checklist status items
+- Project/business context summary
+
+Re-verified from code:
+- Route/middleware protections
+- Role and lifecycle enforcement
+- Logging configuration + event emission points
+- Migration-backed fields and role enum schema
+- Security-focused test presence and scope
+
+Where conflicts existed, this file preserved code-verified behavior and marked discrepancies.
+
