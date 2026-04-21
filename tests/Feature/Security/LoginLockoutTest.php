@@ -117,6 +117,7 @@ class LoginLockoutTest extends TestCase
             'email' => 'lockout-' . uniqid() . '@example.com',
             'password' => Hash::make('password'),
             'role' => 'owner',
+            'email_verified_at' => now(),
         ];
 
         $user = User::create($baseAttributes);

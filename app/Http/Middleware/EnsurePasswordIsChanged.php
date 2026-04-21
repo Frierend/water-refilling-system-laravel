@@ -29,7 +29,7 @@ class EnsurePasswordIsChanged
             $request->session()->regenerateToken();
 
             return redirect()->route('login')->withErrors([
-                'email' => 'Your temporary password has expired. Please contact the administrator for assistance.',
+                'email' => 'Your temporary password has expired. Please contact the owner for assistance.',
             ]);
         }
 

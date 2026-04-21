@@ -55,14 +55,18 @@ class UserManagementController extends Controller
 
         $user->forceFill($lifecycleAttributes)->save();
 
-        Log::channel('audit')->info('security.user.created_by_owner', [
+        if (method_exists($user, 'sendEmailVerificationNotification')) {
+            $user->sendEmailVerificationNotification();
+        }
+
+        Log::channel('security')->info('security.user.created_by_owner', [
             'actor_id' => auth()->id(),
             'user_id' => $user->id,
             'role' => $user->role,
             'email' => $user->email,
         ]);
 
-        Log::channel('audit')->info('security.temporary_password.issued', [
+        Log::channel('security')->info('security.temporary_password.issued', [
             'actor_id' => auth()->id(),
             'user_id' => $user->id,
             'temp_password_expires_at' => $user->temp_password_expires_at?->toDateTimeString(),

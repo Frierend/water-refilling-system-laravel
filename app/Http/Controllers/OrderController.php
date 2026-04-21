@@ -216,7 +216,7 @@ class OrderController extends Controller
             
             DB::commit();
 
-            Log::channel('audit')->info('order.created', [
+            Log::channel('system')->info('order.created', [
                 'actor_id' => auth()->id(),
                 'order_id' => $order->id,
                 'customer_id' => $order->customer_id,
@@ -334,7 +334,7 @@ class OrderController extends Controller
             
             DB::commit();
 
-            Log::channel('audit')->info('order.updated', [
+            Log::channel('system')->info('order.updated', [
                 'actor_id' => auth()->id(),
                 'order_id' => $order->id,
                 'customer_id' => $order->customer_id,
@@ -473,7 +473,7 @@ class OrderController extends Controller
             
             DB::commit();
 
-            Log::channel('audit')->info('order.walkin.created', [
+            Log::channel('system')->info('order.walkin.created', [
                 'actor_id' => auth()->id(),
                 'order_id' => $order->id,
                 'customer_id' => $order->customer_id,
@@ -523,7 +523,7 @@ class OrderController extends Controller
             
             DB::commit();
 
-            Log::channel('audit')->info('order.completed', [
+            Log::channel('system')->info('order.completed', [
                 'actor_id' => auth()->id(),
                 'order_id' => $order->id,
                 'is_delivery' => (bool) $order->is_delivery,
@@ -550,6 +550,13 @@ class OrderController extends Controller
             
             // Only admin/owner can cancel orders
             if (!auth()->user()->isOwner() && !auth()->user()->isAdmin()) {
+                Log::channel('security')->warning('security.authorization.denied', [
+                    'user_id' => auth()->id(),
+                    'action' => 'order.cancel',
+                    'order_id' => $id,
+                    'ip' => request()->ip(),
+                ]);
+
                 abort(403, 'You are not authorized to cancel orders.');
             }
             
@@ -581,7 +588,7 @@ class OrderController extends Controller
             
             DB::commit();
 
-            Log::channel('audit')->info('order.cancelled', [
+            Log::channel('system')->info('order.cancelled', [
                 'actor_id' => auth()->id(),
                 'order_id' => $order->id,
                 'inventory_transactions_reversed' => $inventoryTransactions->count(),

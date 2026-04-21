@@ -29,6 +29,7 @@ class ExportEndpointsTest extends TestCase
             'email' => 'owner-export-' . uniqid() . '@example.com',
             'password' => bcrypt('password'),
             'role' => 'owner',
+            'email_verified_at' => now(),
         ]);
 
         $this->deliveryUser = User::create([
@@ -36,6 +37,7 @@ class ExportEndpointsTest extends TestCase
             'email' => 'delivery-export-' . uniqid() . '@example.com',
             'password' => bcrypt('password'),
             'role' => 'delivery',
+            'email_verified_at' => now(),
         ]);
 
         $this->customer = Customer::create([

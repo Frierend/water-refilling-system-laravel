@@ -63,6 +63,13 @@
                             </div>
                         </div>
 
+
+                        @if (config('services.recaptcha.enabled'))
+                            <div class="mb-4"> 
+                                <div class="g-recaptcha" data-sitekey="{{ config('services.recaptcha.site_key') }}"></div>
+                            </div>
+                        @endif
+
                         <div class="d-grid">
                             <button type="submit" class="btn btn-primary btn-lg">
                                 <i class="bi bi-box-arrow-in-right me-2"></i>{{ __('Login') }}
@@ -75,3 +82,9 @@
     </div>
 </div>
 @endsection
+
+@if (config('services.recaptcha.enabled'))
+    @push('scripts')
+        <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    @endpush
+@endif
