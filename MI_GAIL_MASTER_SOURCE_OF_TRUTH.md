@@ -57,9 +57,17 @@ Implemented using Laravel password broker routes + controllers + views:
 - `/forgot-password`
 - `/reset-password/{token}`
 - `POST /reset-password`
+- Recovery path is explicitly used when a temporary password has expired, including for the `owner` account:
+  - Expired temporary-password users are logged out and redirected to `password.request` (Forgot Password)
+  - Recovery requires broker reset + standard post-login controls (email verification middleware and MFA middleware where enabled)
+  - No permanent bypass route is granted for lifecycle flags
+- No backup administrative role is introduced; canonical authority remains `owner`
 
 Evidence:
 - `routes/web.php`
+- `app/Http/Controllers/Auth/LoginController.php`
+- `app/Http/Controllers/Auth/ForcedPasswordChangeController.php`
+- `app/Http/Middleware/EnsurePasswordIsChanged.php`
 - `app/Http/Controllers/Auth/ForgotPasswordController.php`
 - `app/Http/Controllers/Auth/ResetPasswordController.php`
 - `resources/views/auth/forgot-password.blade.php`
