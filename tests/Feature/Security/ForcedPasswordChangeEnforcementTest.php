@@ -39,6 +39,8 @@ class ForcedPasswordChangeEnforcementTest extends TestCase
         $user = $this->createUser([
             'must_change_password' => true,
             'temp_password_expires_at' => now()->subMinute(),
+            'failed_attempts' => 2,
+            'locked_until' => null,
         ]);
 
         $response = $this->from('/login')->post('/login', [
@@ -70,6 +72,52 @@ class ForcedPasswordChangeEnforcementTest extends TestCase
         $this->actingAs($owner);
         $routeResponse = $this->get('/dashboard');
         $routeResponse->assertRedirect(route('password.request'));
+        $this->assertGuest();
+
+        $user->refresh();
+        $this->assertNotNull($user->lifecycle_locked_at);
+        $this->assertSame('temporary_password_expired', $user->lifecycle_lock_reason);
+        $this->assertSame(0, (int) $user->failed_attempts);
+        $this->assertNull($user->locked_until);
+    }
+
+    public function test_lifecycle_lock_message_for_non_owner_on_login(): void
+    {
+        $user = $this->createUser([
+            'role' => 'helper',
+            'lifecycle_locked_at' => now()->subMinute(),
+            'lifecycle_lock_reason' => 'temporary_password_expired',
+        ]);
+
+        $response = $this->from('/login')->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $response->assertRedirect('/login');
+        $response->assertSessionHasErrors([
+            'email' => 'Your temporary password has expired. Please contact the owner for assistance.',
+        ]);
+        $this->assertGuest();
+    }
+
+    public function test_lifecycle_lock_message_for_owner_on_login(): void
+    {
+        $user = $this->createUser([
+            'role' => 'owner',
+            'lifecycle_locked_at' => now()->subMinute(),
+            'lifecycle_lock_reason' => 'temporary_password_expired',
+        ]);
+
+        $response = $this->from('/login')->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $response->assertRedirect('/login');
+        $response->assertSessionHasErrors([
+            'email' => 'Your temporary password has expired. Recover your account using Forgot Password and the owner email path.',
+        ]);
         $this->assertGuest();
     }
 
@@ -163,6 +211,8 @@ class ForcedPasswordChangeEnforcementTest extends TestCase
         $this->assertFalse($user->must_change_password);
         $this->assertNotNull($user->password_changed_at);
         $this->assertNull($user->temp_password_expires_at);
+        $this->assertNull($user->lifecycle_locked_at);
+        $this->assertNull($user->lifecycle_lock_reason);
         $this->assertTrue(Hash::check('Stronger#Password1', $user->password));
     }
 
@@ -197,6 +247,8 @@ class ForcedPasswordChangeEnforcementTest extends TestCase
             'password_changed_at' => null,
             'failed_attempts' => 0,
             'locked_until' => null,
+            'lifecycle_locked_at' => null,
+            'lifecycle_lock_reason' => null,
         ], $overrides))->save();
 
         return $user;

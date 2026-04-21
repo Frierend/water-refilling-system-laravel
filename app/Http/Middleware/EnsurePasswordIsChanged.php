@@ -25,11 +25,16 @@ class EnsurePasswordIsChanged
         }
 
         if ($this->isTemporaryPasswordExpired($user)) {
-            Log::channel('security')->warning('security.temporary_password.expired_recovery_required', [
+            $user->applyLifecycleLock('temporary_password_expired');
+
+            Log::channel('security')->warning('security.lifecycle.locked_session_denied', [
+                'category' => 'security',
                 'user_id' => $user->id,
                 'email' => $user->email,
-                'role' => $user->role,
-                'recovery_route' => route('password.request'),
+                'lock_reason' => $user->lifecycle_lock_reason,
+                'temp_password_expires_at' => $user->temp_password_expires_at?->toDateTimeString(),
+                'failed_attempts' => (int) $user->failed_attempts,
+                'locked_until' => $user->locked_until?->toDateTimeString(),
                 'ip' => $request->ip(),
                 'user_agent' => (string) $request->userAgent(),
             ]);
@@ -41,6 +46,9 @@ class EnsurePasswordIsChanged
             return redirect()->route('password.request')->with('status',
                 'Your temporary password has expired. Recover access via Forgot Password, then verify your email after signing in.'
             );
+            return redirect()->route('login')->withErrors([
+                'email' => $user->lifecycleLockMessage(),
+            ]);
         }
 
         if ($request->routeIs('password.force.change') || $request->routeIs('password.force.update')) {
