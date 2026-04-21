@@ -122,10 +122,16 @@ Evidence:
 ### `security` category
 Includes:
 - authentication failures/lockouts
+- blocked login attempts during active lockout windows
+- account lifecycle expiry locks (temporary password expired)
 - forced-password-change trigger and completion
+- forced-password-change failure paths
+- forgot/reset password request and result events
 - owner account lifecycle actions
 - authorization denials
+- email verification notice/send/fulfillment
 - MFA challenge outcomes and enable/disable actions
+- OTP setup lifecycle (issued/expired/verification failure)
 - reCAPTCHA-related gate failures
 
 ### `system` category
@@ -133,6 +139,25 @@ Includes:
 - order activity (created/updated/completed/cancelled/walk-in)
 - inventory item and stock adjustment activity
 - delivery completion/cancellation events
+- customer operations (create/update/delete/delete-blocked)
+
+### 3.1 Logging Event Matrix (Controller/Middleware Coverage)
+
+| Category | Event family | Event names (implemented) | Primary implementation points |
+|---|---|---|---|
+| security | Failed logins / lockouts / blocked locked-period logins | `auth.login.failed`, `auth.account.locked`, `auth.login.locked_blocked` | `app/Http/Controllers/Auth/LoginController.php` |
+| security | Lifecycle expiry locks | `security.account.lifecycle.expiry.locked` | `app/Http/Controllers/Auth/LoginController.php`, `app/Http/Controllers/Auth/ForcedPasswordChangeController.php`, `app/Http/Middleware/EnsurePasswordIsChanged.php` |
+| security | Forced change trigger/success/failure | `security.forced_password_change.triggered`, `security.password.changed.success`, `security.forced_password_change.failed` | `app/Http/Controllers/Auth/LoginController.php`, `app/Http/Middleware/EnsurePasswordIsChanged.php`, `app/Http/Controllers/Auth/ForcedPasswordChangeController.php` |
+| security | Forgot/reset requests and results | `security.password.forgot.requested`, `security.password.forgot.sent`, `security.password.forgot.failed`, `security.password.reset.success`, `security.password.reset.failed` | `app/Http/Controllers/Auth/ForgotPasswordController.php`, `app/Http/Controllers/Auth/ResetPasswordController.php` |
+| security | Email verification send/fulfill/notice | `security.email.verification.notice.viewed`, `security.email.verification.sent`, `security.email.verification.fulfilled` | `routes/web.php` |
+| security | MFA enable/challenge/disable | `security.mfa.challenge.requested`, `security.mfa.challenge.passed`, `security.mfa.challenge.failed`, `security.mfa.challenge.required`, `security.mfa.enabled`, `security.mfa.disabled`, `security.mfa.disable.failed` | `app/Http/Controllers/Auth/MfaController.php`, `app/Http/Middleware/EnsureMfaIsVerified.php` |
+| security | OTP lifecycle | `security.otp.setup.issued`, `security.otp.setup.expired`, `security.otp.setup.verification.failed` | `app/Http/Controllers/Auth/MfaController.php` |
+| security | Unauthorized access | `security.authorization.denied` | `app/Http/Middleware/CheckRole.php`, `app/Http/Controllers/OrderController.php`, `app/Http/Controllers/InventoryController.php`, `app/Http/Controllers/DeliveryController.php` |
+| system | User creation (operational) | `security.user.created_by_owner`, `security.temporary_password.issued` (security-classified lifecycle events for operational user onboarding) | `app/Http/Controllers/UserManagementController.php` |
+| system | Orders | `order.created`, `order.updated`, `order.walkin.created`, `order.completed`, `order.cancelled` | `app/Http/Controllers/OrderController.php` |
+| system | Inventory | `inventory.item.created`, `inventory.item.adjusted`, `inventory.item.deleted` | `app/Http/Controllers/InventoryController.php` |
+| system | Deliveries | `delivery.completed`, `delivery.cancelled` | `app/Http/Controllers/DeliveryController.php` |
+| system | Customer operations | `customer.created`, `customer.updated`, `customer.deleted`, `customer.delete.blocked.has_orders` | `app/Http/Controllers/CustomerController.php` |
 
 ## 4) Access Control Terminology (Canonical)
 - Project: **Mi-Gail Water System**
@@ -547,4 +572,3 @@ Re-verified from code:
 - Security-focused test presence and scope
 
 Where conflicts existed, this file preserved code-verified behavior and marked discrepancies.
-

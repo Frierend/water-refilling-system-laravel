@@ -20,8 +20,18 @@ class MfaController extends Controller
     public function challenge(Request $request): View|RedirectResponse
     {
         if (! $request->user()?->mfa_enabled) {
+            Log::channel('security')->warning('security.mfa.challenge.blocked', [
+                'user_id' => $request->user()?->id,
+                'ip' => $request->ip(),
+            ]);
+
             return redirect()->route('dashboard');
         }
+
+        Log::channel('security')->info('security.mfa.challenge.requested', [
+            'user_id' => $request->user()?->id,
+            'ip' => $request->ip(),
+        ]);
 
         return view('auth.mfa-challenge');
     }
@@ -66,6 +76,11 @@ class MfaController extends Controller
 
         $otpauth = $this->totpService->provisioningUri($user->email, $secret);
 
+        Log::channel('security')->info('security.otp.setup.issued', [
+            'user_id' => $user->id,
+            'ip' => $request->ip(),
+        ]);
+
         return view('auth.mfa-setup', [
             'secret' => $secret,
             'otpauth' => $otpauth,
@@ -80,10 +95,20 @@ class MfaController extends Controller
 
         $secret = (string) $request->session()->get('mfa_setup_secret', '');
         if ($secret === '') {
+            Log::channel('security')->warning('security.otp.setup.expired', [
+                'user_id' => $request->user()?->id,
+                'ip' => $request->ip(),
+            ]);
+
             return redirect()->route('mfa.setup')->withErrors(['code' => 'MFA setup expired. Start again.']);
         }
 
         if (! $this->totpService->verifyCode($secret, $validated['code'])) {
+            Log::channel('security')->warning('security.otp.setup.verification.failed', [
+                'user_id' => $request->user()?->id,
+                'ip' => $request->ip(),
+            ]);
+
             return back()->withErrors(['code' => 'Invalid authentication code.']);
         }
 
@@ -111,6 +136,12 @@ class MfaController extends Controller
         ]);
 
         if (! Hash::check($validated['password'], (string) $request->user()->password)) {
+            Log::channel('security')->warning('security.mfa.disable.failed', [
+                'user_id' => $request->user()?->id,
+                'reason' => 'invalid_password',
+                'ip' => $request->ip(),
+            ]);
+
             return back()->withErrors(['password' => 'Invalid current password.']);
         }
 

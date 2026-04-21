@@ -7,6 +7,7 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules;
@@ -39,8 +40,24 @@ class ResetPasswordController extends Controller
                 ])->save();
 
                 event(new PasswordReset($user));
+
+                Log::channel('security')->info('security.password.reset.success', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'ip' => $request->ip(),
+                    'user_agent' => (string) $request->userAgent(),
+                ]);
             }
         );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            Log::channel('security')->warning('security.password.reset.failed', [
+                'email' => (string) $request->input('email'),
+                'status' => $status,
+                'ip' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
+            ]);
+        }
 
         return $status === Password::PASSWORD_RESET
             ? redirect()->route('login')->with('status', __($status))

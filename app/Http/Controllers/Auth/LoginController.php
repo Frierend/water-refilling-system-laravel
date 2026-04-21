@@ -32,6 +32,12 @@ class LoginController extends Controller
         ]);
 
         if (! $this->recaptchaService->verify($request->input('g-recaptcha-response'), $request->ip())) {
+            Log::channel('security')->warning('security.recaptcha.login.failed', [
+                'email' => $request->input('email'),
+                'ip' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
+            ]);
+
             return back()->withErrors([
                 'email' => 'reCAPTCHA verification failed. Please try again.',
             ])->onlyInput('email');
@@ -87,6 +93,14 @@ class LoginController extends Controller
                     Auth::logout();
                     $request->session()->invalidate();
                     $request->session()->regenerateToken();
+
+                    Log::channel('security')->warning('security.account.lifecycle.expiry.locked', [
+                        'user_id' => $authenticatedUser->id,
+                        'email' => $authenticatedUser->email,
+                        'expired_at' => $authenticatedUser->temp_password_expires_at?->toDateTimeString(),
+                        'ip' => $request->ip(),
+                        'user_agent' => (string) $request->userAgent(),
+                    ]);
 
                     return back()->withErrors([
                         'email' => 'Your temporary password has expired. Please contact the owner for assistance.',
