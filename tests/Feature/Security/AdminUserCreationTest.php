@@ -33,6 +33,21 @@ class AdminUserCreationTest extends TestCase
         $response->assertSessionHas('error');
     }
 
+
+    public function test_non_owner_cannot_create_user_accounts(): void
+    {
+        $delivery = $this->createUser('delivery');
+
+        $response = $this->actingAs($delivery)->post(route('users.store'), [
+            'name' => 'Blocked User',
+            'email' => 'blocked-user@example.com',
+            'role' => 'helper',
+        ]);
+
+        $response->assertRedirect(route('dashboard'));
+        $this->assertDatabaseMissing('users', ['email' => 'blocked-user@example.com']);
+    }
+
     public function test_owner_can_assign_only_delivery_or_helper_roles(): void
     {
         $owner = $this->createUser('owner');
