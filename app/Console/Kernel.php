@@ -12,7 +12,13 @@ class Kernel extends ConsoleKernel
      */
     protected function schedule(Schedule $schedule): void
     {
-        // $schedule->command('inspire')->hourly();
+        $schedule->command('backup:run-local')
+            ->everyFifteenMinutes()
+            ->withoutOverlapping();
+
+        $schedule->command('backup:prune-local --days=7')
+            ->dailyAt('01:00')
+            ->withoutOverlapping();
     }
 
     /**

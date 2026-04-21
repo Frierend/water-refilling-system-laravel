@@ -548,3 +548,87 @@ Re-verified from code:
 
 Where conflicts existed, this file preserved code-verified behavior and marked discrepancies.
 
+
+---
+
+## 17) Local Backup and Retention Automation (Verified)
+
+### 17.1 Implemented Artisan commands
+
+The project now includes dedicated local backup commands:
+
+- `php artisan backup:run-local`
+  - Creates a timestamped ZIP archive under `storage/app/backups`
+  - Includes a database dump (`database.sql` for MySQL/PostgreSQL; SQLite file copy when using SQLite)
+  - Includes critical logs matched by patterns:
+    - `security*.log`
+    - `system*.log`
+    - `laravel*.log`
+  - Supports optional storage artifact inclusion via either:
+    - `--include-storage` flag, or
+    - `LOCAL_BACKUP_INCLUDE_STORAGE=true`
+  - Generates archive checksum file (`.sha256`) and a manifest with per-file SHA-256 entries
+
+- `php artisan backup:prune-local --days=7`
+  - Deletes `.zip` and `.zip.sha256` backup artifacts older than the specified retention period
+  - Cleans stale temporary backup working directories
+
+### 17.2 Storage path and naming
+
+- Root backup path: `storage/app/backups` (configurable with `LOCAL_BACKUP_PATH`)
+- Archive naming: `backup_YYYYmmdd_HHMMSS.zip`
+- Checksum naming: `backup_YYYYmmdd_HHMMSS.zip.sha256`
+
+### 17.3 Scheduler configuration (app/Console/Kernel.php)
+
+Configured schedule:
+
+- `backup:run-local` every 15 minutes
+- `backup:prune-local --days=7` daily at `01:00`
+
+### 17.4 Windows/XAMPP/Laragon scheduler setup
+
+Use Windows Task Scheduler to run Laravel's scheduler continuously through `schedule:run`.
+
+1. Open **Task Scheduler** → **Create Task...**
+2. **General** tab:
+   - Name: `Mi-Gail Laravel Scheduler`
+   - Choose **Run whether user is logged on or not**
+3. **Triggers** tab:
+   - New trigger: **Daily**
+   - Repeat task every: **1 minute**
+   - Duration: **Indefinitely**
+4. **Actions** tab:
+   - Action: **Start a program**
+   - Program/script: path to PHP executable
+     - Example (XAMPP): `C:\xampp\php\php.exe`
+     - Example (Laragon): `C:\laragon\bin\php\php-8.x.x\php.exe`
+   - Add arguments:
+     - `artisan schedule:run`
+   - Start in:
+     - `<project-path>` (example: `C:\xampp\htdocs\water-refilling-system-laravel`)
+5. **Conditions** tab:
+   - Uncheck **Start the task only if the computer is on AC power** (optional for laptops)
+6. **Settings** tab:
+   - Enable **Allow task to be run on demand**
+   - Enable **If the task fails, restart every** (recommended)
+
+#### Optional direct tasks (fallback)
+
+If Task Scheduler cannot run every minute in a given environment, create explicit recurring tasks for:
+
+- `php artisan backup:run-local` (every 15 minutes)
+- `php artisan backup:prune-local --days=7` (daily)
+
+Preferred approach remains `schedule:run` every minute so all schedule definitions stay centralized in `app/Console/Kernel.php`.
+
+### 17.5 Backup-related env/config knobs
+
+- `LOCAL_BACKUP_PATH`
+- `LOCAL_BACKUP_RETENTION_DAYS`
+- `LOCAL_BACKUP_INCLUDE_STORAGE`
+- `LOCAL_BACKUP_STORAGE_PATHS` (comma-separated paths under `storage/app`)
+- `LOCAL_BACKUP_DUMP_TIMEOUT_SECONDS`
+- `BACKUP_MYSQLDUMP_BINARY`
+- `BACKUP_PG_DUMP_BINARY`
+
