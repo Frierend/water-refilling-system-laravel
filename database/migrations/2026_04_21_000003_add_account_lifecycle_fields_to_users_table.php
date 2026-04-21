@@ -27,6 +27,14 @@ return new class extends Migration
             if (! Schema::hasColumn('users', 'temp_password_expires_at')) {
                 $table->timestamp('temp_password_expires_at')->nullable()->after('password_changed_at');
             }
+
+            if (! Schema::hasColumn('users', 'lifecycle_locked_at')) {
+                $table->timestamp('lifecycle_locked_at')->nullable()->after('temp_password_expires_at');
+            }
+
+            if (! Schema::hasColumn('users', 'lifecycle_lock_reason')) {
+                $table->string('lifecycle_lock_reason', 255)->nullable()->after('lifecycle_locked_at');
+            }
         });
     }
 
@@ -40,6 +48,14 @@ return new class extends Migration
         }
 
         Schema::table('users', function (Blueprint $table) {
+            if (Schema::hasColumn('users', 'lifecycle_lock_reason')) {
+                $table->dropColumn('lifecycle_lock_reason');
+            }
+
+            if (Schema::hasColumn('users', 'lifecycle_locked_at')) {
+                $table->dropColumn('lifecycle_locked_at');
+            }
+
             if (Schema::hasColumn('users', 'temp_password_expires_at')) {
                 $table->dropColumn('temp_password_expires_at');
             }

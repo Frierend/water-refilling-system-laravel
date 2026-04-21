@@ -6,6 +6,7 @@ use Closure;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsurePasswordIsChanged
@@ -24,12 +25,26 @@ class EnsurePasswordIsChanged
         }
 
         if ($this->isTemporaryPasswordExpired($user)) {
+            $user->applyLifecycleLock('temporary_password_expired');
+
+            Log::channel('security')->warning('security.lifecycle.locked_session_denied', [
+                'category' => 'security',
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'lock_reason' => $user->lifecycle_lock_reason,
+                'temp_password_expires_at' => $user->temp_password_expires_at?->toDateTimeString(),
+                'failed_attempts' => (int) $user->failed_attempts,
+                'locked_until' => $user->locked_until?->toDateTimeString(),
+                'ip' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
+            ]);
+
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
 
             return redirect()->route('login')->withErrors([
-                'email' => 'Your temporary password has expired. Please contact the owner for assistance.',
+                'email' => $user->lifecycleLockMessage(),
             ]);
         }
 
