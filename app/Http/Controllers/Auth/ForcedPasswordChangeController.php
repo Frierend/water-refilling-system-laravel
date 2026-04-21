@@ -29,7 +29,7 @@ class ForcedPasswordChangeController extends Controller
             $request->session()->regenerateToken();
 
             return redirect()->route('login')->withErrors([
-                'email' => 'Your temporary password has expired. Please contact the administrator for assistance.',
+                'email' => 'Your temporary password has expired. Please contact the owner for assistance.',
             ]);
         }
 
@@ -50,7 +50,7 @@ class ForcedPasswordChangeController extends Controller
             $request->session()->regenerateToken();
 
             return redirect()->route('login')->withErrors([
-                'email' => 'Your temporary password has expired. Please contact the administrator for assistance.',
+                'email' => 'Your temporary password has expired. Please contact the owner for assistance.',
             ]);
         }
 
@@ -75,7 +75,7 @@ class ForcedPasswordChangeController extends Controller
             'temp_password_expires_at' => null,
         ])->save();
 
-        Log::channel('audit')->info('security.password.changed.success', [
+        Log::channel('security')->info('security.password.changed.success', [
             'user_id' => $user->id,
             'email' => $user->email,
             'ip' => $request->ip(),

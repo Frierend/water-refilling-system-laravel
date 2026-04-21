@@ -21,6 +21,7 @@ class ReportInputValidationTest extends TestCase
             'email' => 'owner-test-' . uniqid() . '@example.com',
             'password' => bcrypt('password'),
             'role' => 'owner',
+            'email_verified_at' => now(),
         ]);
 
         $this->actingAs($this->owner);

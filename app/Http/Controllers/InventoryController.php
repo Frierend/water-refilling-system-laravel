@@ -97,7 +97,7 @@ class InventoryController extends Controller
             
             DB::commit();
 
-            Log::channel('audit')->info('inventory.item.created', [
+            Log::channel('system')->info('inventory.item.created', [
                 'actor_id' => auth()->id(),
                 'inventory_item_id' => $item->id,
                 'type' => $item->type,
@@ -189,6 +189,13 @@ class InventoryController extends Controller
     {
         // Only admin/owner can delete inventory items
         if (!auth()->user()->isOwner() && !auth()->user()->isAdmin()) {
+            Log::channel('security')->warning('security.authorization.denied', [
+                'user_id' => auth()->id(),
+                'action' => 'inventory.delete',
+                'inventory_item_id' => $id,
+                'ip' => request()->ip(),
+            ]);
+
             abort(403, 'You are not authorized to delete inventory items.');
         }
         
@@ -202,7 +209,7 @@ class InventoryController extends Controller
         
         $item->delete();
 
-        Log::channel('audit')->info('inventory.item.deleted', [
+        Log::channel('system')->info('inventory.item.deleted', [
             'actor_id' => auth()->id(),
             'inventory_item_id' => $item->id,
             'type' => $item->type,
@@ -274,7 +281,7 @@ class InventoryController extends Controller
             
             DB::commit();
 
-            Log::channel('audit')->info('inventory.item.adjusted', [
+            Log::channel('system')->info('inventory.item.adjusted', [
                 'actor_id' => auth()->id(),
                 'inventory_item_id' => $item->id,
                 'quantity_change' => $quantityChange,

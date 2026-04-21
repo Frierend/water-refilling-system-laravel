@@ -41,6 +41,7 @@ class AdminUserCreationTest extends TestCase
             'name' => 'Invalid Role User',
             'email' => 'invalid-role@example.com',
             'role' => 'owner',
+            'email_verified_at' => now(),
         ]);
 
         $response->assertRedirect(route('users.create'));
@@ -56,6 +57,7 @@ class AdminUserCreationTest extends TestCase
             'name' => 'Delivery Agent',
             'email' => 'delivery-agent@example.com',
             'role' => 'delivery',
+            'email_verified_at' => now(),
         ]);
 
         $response->assertRedirect(route('users.create'));
@@ -103,7 +105,7 @@ class AdminUserCreationTest extends TestCase
     {
         $owner = $this->createUser('owner');
 
-        Log::shouldReceive('channel')->with('audit')->twice()->andReturnSelf();
+        Log::shouldReceive('channel')->with('security')->twice()->andReturnSelf();
         Log::shouldReceive('info')->once()->withArgs(function (string $event, array $context): bool {
             return $event === 'security.user.created_by_owner'
                 && isset($context['actor_id'], $context['user_id'], $context['role'], $context['email'])
@@ -119,6 +121,7 @@ class AdminUserCreationTest extends TestCase
             'name' => 'Audit Test User',
             'email' => 'audit-test@example.com',
             'role' => 'delivery',
+            'email_verified_at' => now(),
         ]);
 
         $response->assertRedirect(route('users.create'));

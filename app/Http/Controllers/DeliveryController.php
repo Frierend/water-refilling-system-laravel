@@ -103,7 +103,7 @@ class DeliveryController extends Controller
         $order->delivery_date = Carbon::now();
         $order->save();
 
-        Log::channel('audit')->info('delivery.completed', [
+        Log::channel('system')->info('delivery.completed', [
             'actor_id' => auth()->id(),
             'order_id' => $order->id,
             'delivery_user_id' => $order->delivery_user_id,
@@ -124,6 +124,13 @@ class DeliveryController extends Controller
     {
         // Only admin/owner can cancel deliveries
         if (!auth()->user()->isOwner() && !auth()->user()->isAdmin()) {
+            Log::channel('security')->warning('security.authorization.denied', [
+                'user_id' => auth()->id(),
+                'action' => 'delivery.cancel',
+                'delivery_id' => $id,
+                'ip' => request()->ip(),
+            ]);
+
             abort(403, 'You are not authorized to cancel deliveries.');
         }
         
@@ -134,7 +141,7 @@ class DeliveryController extends Controller
         $order->order_status = 'cancelled';
         $order->save();
 
-        Log::channel('audit')->info('delivery.cancelled', [
+        Log::channel('system')->info('delivery.cancelled', [
             'actor_id' => auth()->id(),
             'order_id' => $order->id,
             'delivery_user_id' => $order->delivery_user_id,

@@ -14,7 +14,7 @@ class ForcedPasswordChangeEnforcementTest extends TestCase
 
     public function test_login_redirects_to_forced_change_when_password_change_is_required(): void
     {
-        Log::shouldReceive('channel')->with('audit')->once()->andReturnSelf();
+        Log::shouldReceive('channel')->with('security')->once()->andReturnSelf();
         Log::shouldReceive('info')->once()->withArgs(function (string $event, array $context): bool {
             return $event === 'security.forced_password_change.triggered'
                 && isset($context['user_id'], $context['email'], $context['ip'], $context['user_agent']);
@@ -118,7 +118,7 @@ class ForcedPasswordChangeEnforcementTest extends TestCase
 
     public function test_forced_change_update_succeeds_and_clears_lifecycle_flags(): void
     {
-        Log::shouldReceive('channel')->with('audit')->once()->andReturnSelf();
+        Log::shouldReceive('channel')->with('security')->once()->andReturnSelf();
         Log::shouldReceive('info')->once()->withArgs(function (string $event, array $context): bool {
             return $event === 'security.password.changed.success'
                 && isset($context['user_id'], $context['email'], $context['ip'], $context['user_agent']);
@@ -166,6 +166,7 @@ class ForcedPasswordChangeEnforcementTest extends TestCase
             'email' => 'forced-change-' . uniqid() . '@example.com',
             'password' => Hash::make('password'),
             'role' => 'helper',
+            'email_verified_at' => now(),
         ]);
 
         $user->forceFill(array_merge([

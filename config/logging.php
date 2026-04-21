@@ -73,12 +73,26 @@ return [
             'replace_placeholders' => true,
         ],
 
-        'audit' => [
+        'security' => [
             'driver' => 'daily',
-            'path' => storage_path('logs/audit.log'),
-            'level' => env('AUDIT_LOG_LEVEL', 'info'),
-            'days' => env('AUDIT_LOG_DAYS', 30),
+            'path' => storage_path('logs/security.log'),
+            'level' => env('SECURITY_LOG_LEVEL', 'info'),
+            'days' => env('SECURITY_LOG_DAYS', 30),
             'replace_placeholders' => true,
+        ],
+
+        'system' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/system.log'),
+            'level' => env('SYSTEM_LOG_LEVEL', 'info'),
+            'days' => env('SYSTEM_LOG_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'audit' => [
+            'driver' => 'stack',
+            'channels' => ['security', 'system'],
+            'ignore_exceptions' => false,
         ],
 
         'slack' => [

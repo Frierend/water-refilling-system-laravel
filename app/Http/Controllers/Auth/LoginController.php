@@ -4,52 +4,38 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use App\Providers\RouteServiceProvider;
+use App\Services\RecaptchaService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class LoginController extends Controller
 {
-    /**
-     * Where to redirect users after login.
-     *
-     * @var string
-     */
-    protected $redirectTo = '/dashboard';  // Changed from RouteServiceProvider::HOME to '/dashboard'
+    protected $redirectTo = '/dashboard';
 
-    /**
-     * Create a new controller instance.
-     *
-     * @return void
-     */
-    public function __construct()
+    public function __construct(private readonly RecaptchaService $recaptchaService)
     {
         $this->middleware('guest')->except('logout');
     }
 
-    /**
-     * Show the application's login form.
-     *
-     * @return \Illuminate\View\View
-     */
     public function showLoginForm()
     {
         return view('auth.login');
     }
 
-    /**
-     * Handle a login request to the application.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse|\Illuminate\Http\Response|\Illuminate\Http\JsonResponse
-     */
     public function login(Request $request)
     {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
             'password' => ['required'],
+            'g-recaptcha-response' => ['nullable', 'string'],
         ]);
+
+        if (! $this->recaptchaService->verify($request->input('g-recaptcha-response'), $request->ip())) {
+            return back()->withErrors([
+                'email' => 'reCAPTCHA verification failed. Please try again.',
+            ])->onlyInput('email');
+        }
 
         $maxAttempts = (int) config('auth.login_lockout.max_attempts', 5);
         $lockMinutes = (int) config('auth.login_lockout.lock_minutes', 5);
@@ -59,7 +45,7 @@ class LoginController extends Controller
             if ($user->locked_until->isFuture()) {
                 $remainingMinutes = max(1, now()->diffInMinutes($user->locked_until));
 
-                Log::channel('audit')->warning('auth.login.locked_blocked', [
+                Log::channel('security')->warning('auth.login.locked_blocked', [
                     'user_id' => $user->id,
                     'email' => $credentials['email'],
                     'locked_until' => $user->locked_until->toDateTimeString(),
@@ -78,8 +64,9 @@ class LoginController extends Controller
             ])->save();
         }
 
-        if (Auth::attempt($credentials, $request->filled('remember'))) {
+        if (Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']], $request->filled('remember'))) {
             $request->session()->regenerate();
+            $request->session()->forget('mfa_passed_for_user_id');
 
             $authenticatedUser = Auth::user();
             if (
@@ -91,7 +78,7 @@ class LoginController extends Controller
                     'locked_until' => null,
                 ])->save();
             }
-            
+
             if ($authenticatedUser !== null && $authenticatedUser->must_change_password) {
                 if (
                     $authenticatedUser->temp_password_expires_at !== null
@@ -102,11 +89,11 @@ class LoginController extends Controller
                     $request->session()->regenerateToken();
 
                     return back()->withErrors([
-                        'email' => 'Your temporary password has expired. Please contact the administrator for assistance.',
+                        'email' => 'Your temporary password has expired. Please contact the owner for assistance.',
                     ])->onlyInput('email');
                 }
 
-                Log::channel('audit')->info('security.forced_password_change.triggered', [
+                Log::channel('security')->info('security.forced_password_change.triggered', [
                     'user_id' => $authenticatedUser->id,
                     'email' => $authenticatedUser->email,
                     'ip' => $request->ip(),
@@ -116,11 +103,21 @@ class LoginController extends Controller
                 return redirect()->route('password.force.change');
             }
 
-            // Redirect based on user role
-            $user = Auth::user();
-            if ($user->isDelivery()) {
+            if ($authenticatedUser !== null && ! $authenticatedUser->hasVerifiedEmail()) {
+                $authenticatedUser->sendEmailVerificationNotification();
+
+                return redirect()->route('verification.notice');
+            }
+
+            if ($authenticatedUser !== null && $authenticatedUser->mfa_enabled) {
+                return redirect()->route('mfa.challenge');
+            }
+
+            if ($authenticatedUser?->isDelivery()) {
                 return redirect()->route('deliveries.index');
-            } elseif ($user->isHelper()) {
+            }
+
+            if ($authenticatedUser?->isHelper()) {
                 return redirect()->route('orders.create');
             }
 
@@ -138,7 +135,7 @@ class LoginController extends Controller
 
             $user->forceFill($updates)->save();
 
-            Log::channel('audit')->warning('auth.login.failed', [
+            Log::channel('security')->warning('auth.login.failed', [
                 'user_id' => $user->id,
                 'email' => $credentials['email'],
                 'failed_attempts' => $failedAttempts,
@@ -148,7 +145,7 @@ class LoginController extends Controller
             ]);
 
             if ($isLocked) {
-                Log::channel('audit')->warning('auth.account.locked', [
+                Log::channel('security')->warning('auth.account.locked', [
                     'user_id' => $user->id,
                     'email' => $credentials['email'],
                     'failed_attempts' => $failedAttempts,
@@ -163,7 +160,7 @@ class LoginController extends Controller
                 ])->onlyInput('email');
             }
         } else {
-            Log::channel('audit')->warning('auth.login.failed', [
+            Log::channel('security')->warning('auth.login.failed', [
                 'user_id' => null,
                 'email' => $credentials['email'],
                 'failed_attempts' => null,
@@ -178,12 +175,6 @@ class LoginController extends Controller
         ])->onlyInput('email');
     }
 
-    /**
-     * Log the user out of the application.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
-     */
     public function logout(Request $request)
     {
         Auth::logout();
