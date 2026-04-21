@@ -1,7 +1,8 @@
-# SECURITY_DOCUMENTATION (Deprecated)
+# SECURITY_DOCUMENTATION (Deprecated / Archive-Ready)
 
-Security documentation has been consolidated into:
+This file is deprecated and archive-ready.
 
+Authoritative source:
 - **`MI_GAIL_MASTER_SOURCE_OF_TRUTH.md`**
 
-Refer to the master file for verified security controls, audit logging categories, incident response plan, and security-related deferred items.
+Use the master file for password/lockout/lifecycle/recovery, SMTP + verification, MFA/OTP behavior, `security` vs `system` logs, retention, and incident-response status.

@@ -226,356 +226,203 @@ Security tests present under:
 
 This file is the single authoritative documentation source for this repository. It consolidates and supersedes overlapping project/evaluator documentation content from:
 
-- `README.md`
-- `AUDIT_REPORT.md`
-- `IMPLEMENTATION_CHECKLIST.md`
-- `SECURITY_DOCUMENTATION.md`
-- `SECURITY.md` (where applicable)
-- `Project Criteria.docx` (rubric)
-- `Final Docs (IT12).docx` (project documentation template/basis)
+## 1) Documentation Authority
 
-If any of the above documents conflict with verified code behavior, this master file prefers **verified code** and records the mismatch.
+This is the single authoritative documentation file for the **Mi-Gail Water System**.
 
----
+All overlapping implementation/audit/security/checklist documentation is deprecated/archive-ready and should be treated as pointer-only material. Use this file as the source for:
+- verified implementation status,
+- security and account-lifecycle behavior,
+- logging taxonomy (`security` vs `system`), and
+- known gaps/deferred work.
 
-## 2) Project Overview
+## 2) Canonical Terminology
 
-- **Project name:** Mi-Gail Water System
-- **Domain:** Sales, delivery, inventory, customer management, and reporting for a water-refilling business
-- **Framework:** Laravel 10 (`laravel/framework` `^10.10` via `composer.json`)
-- **Language/runtime:** PHP 8.1+
-- **Core modules:**
-  - Authentication and account lifecycle security
-  - Dashboard
-  - Customers
-  - Orders (including walk-in)
-  - Deliveries
-  - Inventory + inventory transactions
-  - Reports + exports
+- Project: **Mi-Gail Water System**
+- Administrative authority: **owner**
+- Operational roles: **delivery**, **helper**
+
+Legacy `admin` references in code or tests are compatibility naming only; the effective administrative authority is `owner`.
+
+## 3) Verification Method
+
+Claims below were verified from Laravel routes, controllers/services/middleware, config, migrations, and security feature tests in this repository.
+
+If a claim cannot be verified in code/tests, it is documented as **not implemented** or **operational assumption**.
 
 ---
 
-## 3) System Description (Verified)
+## 4) Verified Security and Account-Lifecycle Controls
 
-### 3.1 Route map (web)
-Verified from `routes/web.php`:
+### 4.1 Password policy (explicit)
 
-- Public:
-  - `GET /` welcome
-  - `GET /login`, `POST /login`, `POST /logout`
-- Protected group with `auth` + `password.changed` middleware:
-  - Forced password change routes: `GET/POST /force-password-change`
-  - Owner-only user creation: `GET /users/create`, `POST /users`
-  - Dashboard: `GET /dashboard`
-  - Customers: resource routes + `GET /api/customers/search`
-  - Orders: resource routes, walk-in routes, complete/cancel routes
-  - Deliveries: list/show/complete/cancel routes
-  - Inventory: CRUD + adjust + low-stock + export
-  - Reports: sales/delivery/customer/inventory + export endpoints
+**Implemented and configurable** via `config/security.php`:
+- minimum length (default 8),
+- uppercase requirement,
+- lowercase requirement,
+- number requirement,
+- symbol requirement.
 
-### 3.2 Middleware and request-security chain
-Verified from `app/Http/Kernel.php` and middleware classes:
+**Enforced in code paths:**
+- forced password change flow (`ForcedPasswordChangeController::passwordRules()`),
+- forgot-password reset flow (`ResetPasswordController`, minimum length via `config/security.php`).
 
-- Global middleware includes:
-  - `SecurityHeaders` (custom)
-  - CORS handler
-  - CSRF in web group
-- Custom aliases:
-  - `role` → `CheckRole`
-  - `password.changed` → `EnsurePasswordIsChanged`
+Note: reset flow currently enforces configured minimum length; character-class regex enforcement is implemented in forced-change flow.
 
-### 3.3 Primary business entities
-Verified from models + migrations:
+### 4.2 Lockout policy (explicit)
 
-- `users`: role-based accounts (`owner`, `delivery`, `helper`)
-- `customers`
-- `orders`
-- `inventory_items`
-- `inventory_transactions`
-- Laravel defaults: `password_reset_tokens`, `failed_jobs`, `personal_access_tokens`
+**Implemented account lockout policy** in `config/auth.php` and `LoginController`:
+- `max_attempts` default: 5 failed attempts,
+- `lock_minutes` default: 5 minutes,
+- tracked with `users.failed_attempts` and `users.locked_until`.
 
-### 3.4 Business process implementation status
+Behavior:
+- failed attempts increment per known account,
+- account is blocked while `locked_until` is in the future,
+- counters reset after successful login or expired lock window.
 
-Implemented in code:
-- Sales order capture and management (delivery + walk-in)
-- Delivery workflow (`pending/completed/cancelled`)
-- Inventory deductions/additions through transaction records
-- Customer CRUD with search/filter/sort
-- Report pages (sales, delivery, customer, inventory)
-- CSV and selected PDF exports
+### 4.3 Lifecycle expiry policy (explicit)
 
-Partially/Deferred:
-- Full password-reset flow (token/email routes not implemented)
-- MFA, CAPTCHA, and email-verification enforcement not implemented
-- Dedicated split of audit channel into `security` and `system` channels not implemented (currently single `audit` channel)
+**Implemented temporary-password lifecycle model**:
+- owner-created users are issued temporary passwords,
+- account flagged `must_change_password = true`,
+- expiry timestamp stored in `temp_password_expires_at`,
+- expiry window configured by `security.temporary_password.expires_hours` (default 24h),
+- expired temporary-password users are denied login and told to contact owner.
 
----
+### 4.4 Recovery model (explicit)
 
-## 4) Platform and Technologies Used
+**Implemented recovery path:** Laravel broker-based email reset:
+- `GET /forgot-password`, `POST /forgot-password`,
+- `GET /reset-password/{token}`, `POST /reset-password`.
 
-Verified from `composer.json`, `package.json`, and code:
+On successful reset:
+- password updated,
+- remember token rotated,
+- lifecycle flags cleared (`must_change_password = false`, `temp_password_expires_at = null`, `password_changed_at = now()`).
 
-- Backend: Laravel 10, Eloquent ORM, Blade templates
-- DB: MySQL/MariaDB-oriented migrations; SQLite guarded handling in enum migration
-- Frontend: Blade + Bootstrap + Chart.js + Vite
-- Export/PDF: `barryvdh/laravel-dompdf`
-- Auth/session: Laravel session auth with custom login/account-lifecycle logic
-- Tests: PHPUnit feature tests under `tests/Feature/Security/*`
+### 4.5 SMTP setup (explicit)
 
----
+Email-dependent flows (verification + reset links) rely on Laravel mail config:
+- default mailer is SMTP,
+- SMTP host/port/encryption/credentials are environment-driven.
 
-## 5) Access Control / RBAC
+**Operational requirement:** production `.env` must provide valid mail transport values (`MAIL_MAILER`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_*`).
 
-### 5.1 Role model (authoritative terminology)
+### 4.6 Email verification (explicit)
 
-- **Administrative authority:** `owner`
-- **Operational roles:** `delivery`, `helper`
+**Implemented Laravel verification flow**:
+- `User` implements `MustVerifyEmail`,
+- verification notice route,
+- signed/throttled verify endpoint,
+- resend verification endpoint,
+- owner-created users are sent verification notifications.
 
-### 5.2 Legacy `admin` references
+Protected business routes are gated by `verified` middleware.
 
-Legacy `admin` references still appear in code (e.g., middleware role strings and `isAdmin()` helper). In this codebase, `isAdmin()` resolves to `isOwner()`, so `owner` is the effective administrative authority.
+### 4.7 MFA (explicit)
 
-### 5.3 Enforcement examples
+**Implemented TOTP MFA (Google Authenticator compatible)**:
+- setup route generates secret + provisioning URI (`otpauth://...`),
+- challenge verifies 6-digit TOTP,
+- enabled state stored per user (`mfa_enabled`, encrypted `mfa_secret`),
+- `mfa` middleware blocks protected routes until challenge is passed for session,
+- disable flow requires current password.
 
-- Owner-only user creation routes use `role:owner`
-- Reports use `role:owner,admin` (legacy compatibility in middleware argument)
-- Inventory/customer restrictions deny certain operations for `delivery`
+### 4.8 OTP/mobile behavior (explicit)
 
----
+**Implemented OTP behavior:** app-based 6-digit TOTP for authenticator applications (e.g., Google Authenticator).
 
-## 6) Security Policies and Controls (Verified)
+**Not implemented:** SMS OTP, phone-number delivery OTP, or mobile carrier-based verification flows. No mobile-number model fields or SMS provider integration are present.
 
-### 6.1 Authentication and lockout
+### 4.9 reCAPTCHA (related login anti-abuse)
 
-Verified from `LoginController`, `config/auth.php`, migrations:
-- Login lockout controls:
-  - `max_attempts` (default 5)
-  - `lock_minutes` (default 5)
-- Tracks and enforces:
-  - `failed_attempts`
-  - `locked_until`
+Login supports optional Google reCAPTCHA token verification:
+- enabled via `services.recaptcha.enabled`,
+- server-side verification via configured Google verify URL.
 
-### 6.2 Account lifecycle / forced password change
-
-Verified from `UserManagementController`, `ForcedPasswordChangeController`, `EnsurePasswordIsChanged`, `config/security.php`:
-- Owner creates `delivery`/`helper` user with generated temporary password
-- Temporary password is stored hashed; shown once via session flash
-- New user flagged with:
-  - `must_change_password = true`
-  - `temp_password_expires_at`
-- Flagged users are redirected to forced-change flow
-- Password policy driven by config:
-  - min length, upper/lower/number/symbol requirements
-- Reuse prevention: new password cannot equal current hash
-
-### 6.3 Header hardening
-
-Verified from `SecurityHeaders` middleware:
-- `X-Frame-Options: SAMEORIGIN`
-- `X-Content-Type-Options: nosniff`
-- `Referrer-Policy: strict-origin-when-cross-origin`
-- `Permissions-Policy` restrictions
-- Conditional HSTS on secure requests
-
-### 6.4 Input validation / allowlisting
-
-Controllers consistently validate critical inputs for:
-- login/authentication paths
-- account creation + password change
-- report filters (period/status/driver/type/per_page)
-- export format allowlists
-- order/inventory/customer mutation inputs
-
-### 6.5 Transaction safety
-
-Write-heavy operations in orders and inventory are transaction-wrapped with rollback paths.
+If disabled, login proceeds without captcha enforcement.
 
 ---
 
-## 7) Incident Response Plan (Current + Operational Guidance)
+## 5) Audit Logging Taxonomy (`security` vs `system`) (explicit)
 
-### 7.1 Current in-code incident-support capabilities
+### 5.1 Channel design
 
-- Structured audit events in `audit` channel (`storage/logs/audit*.log`)
-- Account lockout telemetry (`auth.login.failed`, `auth.account.locked`, `auth.login.locked_blocked`)
-- Account lifecycle events (`security.*` events)
-- Business operation events for order/delivery/inventory actions
+`config/logging.php` defines:
+- `security` daily log file (`storage/logs/security.log`, retention env-configurable),
+- `system` daily log file (`storage/logs/system.log`, retention env-configurable),
+- `audit` stack channel combining both for compatibility.
 
-### 7.2 Minimum incident response procedure (documented process)
+### 5.2 Security-log category
 
-1. **Detect:** Monitor `audit` channel for high-risk patterns (repeated failed logins, lockouts, unauthorized attempts).
-2. **Triage:** Identify actor, IP, user-agent, timestamp, and affected account/module.
-3. **Contain:** Disable/rotate affected credentials, force password reset by owner workflow when needed.
-4. **Eradicate/Recover:** Fix root cause (misconfiguration/access issue), verify normal login/business operations.
-5. **Post-incident review:** Record timeline, root cause, corrective action, and prevention tasks.
+`security` log events include (verified examples):
+- failed logins and lockouts,
+- blocked logins for locked accounts,
+- forced-password-change trigger and completion,
+- owner user creation and temporary-password issuance metadata,
+- authorization denials,
+- MFA challenge failures/success and enable/disable actions.
 
-### 7.3 Gaps / deferred IR enhancements
+### 5.3 System-log category
 
-- No documented automated alerting pipeline (e.g., SIEM/webhook) in repository.
-- No dedicated incident runbook file beyond this master documentation.
-
----
-
-## 8) Audit Logging (Required Categories)
-
-The project must document two categories: **`security`** and **`system`**.
-
-### 8.1 Current implementation state
-
-- Logging channel configured in `config/logging.php`: **single `audit` daily channel**.
-- Event naming inside this channel already naturally separates categories by prefix.
-
-### 8.2 Category map (authoritative)
-
-#### A) `security` audit events (implemented in event naming)
-
-Includes, and verified in controllers:
-- authentication attempts and failures (`auth.login.failed`)
-- lockout events (`auth.account.locked`, `auth.login.locked_blocked`)
-- forced password change trigger (`security.forced_password_change.triggered`)
-- password change success (`security.password.changed.success`)
-- owner-created account lifecycle events (`security.user.created_by_owner`, `security.temporary_password.issued`)
-
-Unauthorized-access attempts:
-- Unauthorized role access currently redirects/aborts, but explicit structured unauthorized-attempt logging is limited and should be expanded.
-
-#### B) `system` audit events (implemented in event naming)
-
-Includes, and verified in controllers:
-- order activity (`order.created`, `order.updated`, `order.completed`, `order.cancelled`, `order.walkin.created`)
-- inventory changes (`inventory.item.created`, `inventory.item.adjusted`, `inventory.item.deleted`)
-- delivery updates (`delivery.completed`, `delivery.cancelled`)
-- customer operational events: customer CRUD exists; explicit customer audit events are limited and can be expanded.
-
-### 8.3 Required improvement (deferred)
-
-Implement dedicated channels (or stacks) for `security` and `system` while preserving current event taxonomy for backward compatibility.
+`system` log events include (verified examples):
+- order create/update/walk-in/complete/cancel,
+- inventory item create/delete/adjust,
+- delivery complete/cancel.
 
 ---
 
-## 9) Verification and Testing Evidence
+## 6) Backup and Retention (explicit)
 
-### 9.1 Verified test coverage (from repository tests)
+### 6.1 Verified in-code retention controls
 
-Security-focused feature tests are present for:
-- login lockout behavior
-- forced password change enforcement and completion
-- owner-only user creation and lifecycle controls
-- report input validation
-- export endpoint behavior
+- Log-file retention is explicitly configured on daily channels:
+  - `SECURITY_LOG_DAYS` (default 30),
+  - `SYSTEM_LOG_DAYS` (default 30),
+  - default Laravel daily log channel retention is 14 days.
 
-Files:
-- `tests/Feature/Security/LoginLockoutTest.php`
-- `tests/Feature/Security/ForcedPasswordChangeEnforcementTest.php`
-- `tests/Feature/Security/AdminUserCreationTest.php`
-- `tests/Feature/Security/ReportInputValidationTest.php`
-- `tests/Feature/Security/ExportEndpointsTest.php`
+### 6.2 Backup status
 
-## 7) Deferred / Known Limits
-- External dependency correctness (SMTP, Google reCAPTCHA endpoints) depends on deployment env variables and network reachability.
-- MFA UX currently exposes provisioning URI + secret text; teams may optionally add in-app QR image rendering.
-
-## 8) Legacy Docs Status
-The following files remain as legacy/deprecated pointers and should not override this document:
-- `AUDIT_REPORT.md`
-- `IMPLEMENTATION_CHECKLIST.md`
-- `SECURITY_DOCUMENTATION.md`
-- `README.md` (quick entry only)
-### 9.2 Evidence provenance note
-
-Prior docs claim `php artisan test` and migration preflight passes on **April 21, 2026**. In this update cycle, documentation was verified by static code inspection; no new runtime execution evidence is added here.
+- **No dedicated database/file backup scheduler or restoration automation is present in this repository code.**
+- Backup cadence, media, encryption-at-rest, offsite copy, and restore testing are deployment/operations responsibilities and should be handled outside this codebase unless future code adds them.
 
 ---
 
-## 10) Criteria Alignment (Rubric-Based)
+## 7) Incident Response (explicit)
 
-Based on `Project Criteria.docx` and verified code evidence:
+### 7.1 In-code incident-support capabilities
 
-1. **Secure coding practices:** generally present (env-driven configs, validation, no plaintext password storage in DB).
-2. **Authentication system:** implemented with hashing and lockout; MFA/CAPTCHA not implemented.
-3. **Authorization/RBAC:** implemented with role middleware and role helpers; legacy `admin` compatibility needs cleanup.
-4. **Data protection:** hashing for passwords; TLS/HSTS depends on deployment transport and secure requests.
-5. **Input validation:** implemented on critical controllers/routes.
-6. **Audit/accountability:** strong event coverage, but channel split (`security` vs `system`) still pending.
-7. **HTTP hardening:** security headers middleware enabled globally.
-8. **CORS hardening:** explicit allowlist-based config present.
-9. **Automated security verification:** targeted feature tests included.
-10. **Migration safety:** enum migration includes DB-driver guards and idempotent behavior.
+Implemented support signals:
+- structured security events in `security` log channel,
+- account lockout controls,
+- forced password reset/change and verification paths,
+- authorization-denial logging.
 
----
+### 7.2 Documented minimum response model
 
-## 11) Code-vs-Documentation Mismatches
+For this repository scope, minimum process is:
+1. Detect suspicious activity from `security` logs.
+2. Contain affected accounts (owner action: reset credentials, disable MFA if recovery needed, rotate secrets as applicable).
+3. Eradicate root cause (credential/config/access issue).
+4. Recover service (verify auth and core business flows).
+5. Record post-incident findings and corrective actions.
 
-1. **Role naming mismatch (legacy admin references):**
-   - Schema roles are `owner`, `delivery`, `helper`.
-   - Some checks/middleware still reference `admin` for compatibility.
-   - Canonical administrative term is **owner**.
-
-2. **Inventory `empty` type evolution:**
-   - Base inventory migration initially lacked `empty` enum value.
-   - Later migration adds `empty` with driver-safe/idempotent approach.
-   - Code uses `empty` item logic in order flows.
-
-3. **Audit channel taxonomy:**
-   - Documentation requirement asks `security` and `system` categories.
-   - Code currently logs to one `audit` channel with category-like event names.
-
-4. **Feature claims from historical docs:**
-   - Some historical docs mention future/deferred controls; this master file marks deferred items explicitly as **not implemented**.
+**Gap:** No separate automated incident runbook system exists in-code.
 
 ---
 
-## 12) Deferred Items
+## 8) Local Presentation Assumptions (explicit)
 
-Not implemented in verified code:
+The application is implemented as a **server-rendered web UI** (Blade templates), not a native mobile app.
 
-- Forgot-password broker/email reset flow
-- Email verification enforcement
-- CAPTCHA (e.g., reCAPTCHA)
-- MFA
-- Dedicated split log channels for `security` and `system`
-- Broader structured logging of unauthorized-access attempts and customer CRUD operations
+Assumptions for local/dev presentation:
+- users access via browser sessions,
+- MFA OTP entry occurs on web forms,
+- email verification/reset links are consumed in browser,
+- role-specific navigation/redirects are web-route based.
 
----
-
-## 13) Known Limitations
-
-- Test suite includes strong security-focused feature coverage but no broad integration matrix for all DB-engine edge cases.
-- Legacy compatibility references to `admin` can cause conceptual confusion for maintainers/evaluators.
-- Some capabilities are present in workflow but not yet fully normalized in policy/log channel separation.
-
----
-
-## 14) Evidence Pointers (Quick Index)
-
-- Routes: `routes/web.php`
-- Kernel/middleware: `app/Http/Kernel.php`, `app/Http/Middleware/*`
-- Auth/account lifecycle:
-  - `app/Http/Controllers/Auth/LoginController.php`
-  - `app/Http/Controllers/Auth/ForcedPasswordChangeController.php`
-  - `app/Http/Controllers/UserManagementController.php`
-  - `app/Http/Middleware/EnsurePasswordIsChanged.php`
-  - `config/security.php`, `config/auth.php`
-- RBAC and role model: `app/Http/Middleware/CheckRole.php`, `app/Models/User.php`
-- Business modules:
-  - `app/Http/Controllers/OrderController.php`
-  - `app/Http/Controllers/DeliveryController.php`
-  - `app/Http/Controllers/InventoryController.php`
-  - `app/Http/Controllers/CustomerController.php`
-  - `app/Http/Controllers/ReportController.php`
-- Logging config: `config/logging.php`
-- Schema/migrations:
-  - `database/migrations/2025_05_01_140313_create_users_table.php`
-  - `database/migrations/2026_04_21_000002_add_login_lock_fields_to_users_table.php`
-  - `database/migrations/2026_04_21_000003_add_account_lifecycle_fields_to_users_table.php`
-  - `database/migrations/2025_05_01_140315_create_inventory_items_table.php`
-  - `database/migrations/2026_04_21_000001_add_empty_type_to_inventory_items_enum.php`
-- Security verification tests:
-  - `tests/Feature/Security/LoginLockoutTest.php`
-  - `tests/Feature/Security/ForcedPasswordChangeEnforcementTest.php`
-  - `tests/Feature/Security/AdminUserCreationTest.php`
-  - `tests/Feature/Security/ReportInputValidationTest.php`
-  - `tests/Feature/Security/ExportEndpointsTest.php`
+No in-code assumptions for native mobile push, SMS inbox parsing, or mobile-specific OTP UX are implemented.
 
 ---
 
@@ -630,27 +477,21 @@ Notes:
 
 ## 15) Consolidation / Archival Guidance for Legacy Docs
 
-Recommended post-consolidation document status:
+Security tests currently present and aligned to implemented behavior include:
+- owner-only user creation, lifecycle flags, and secure logging expectations,
+- forced password change enforcement and lifecycle handling,
+- login lockout increment/block/reset behavior,
+- additional report/export validation tests.
 
-- `AUDIT_REPORT.md` → **Deprecated** (replace with pointer to this master file)
-- `IMPLEMENTATION_CHECKLIST.md` → **Deprecated** (pointer)
-- `SECURITY_DOCUMENTATION.md` → **Deprecated** (pointer)
-- `README.md` → **Keep concise** with quickstart + pointer to this master file
+Coverage confirms key policies above, but not all possible flows (e.g., full end-to-end SMTP delivery success in external infrastructure).
 
 ---
 
-## 16) Consolidation Summary (What was merged and what was verified)
+## 10) Deprecated / Archive-Ready Documentation Index
 
-Merged from existing docs:
-- Prior audit conclusions and criteria mapping
-- Security and implementation checklist status items
-- Project/business context summary
-
-Re-verified from code:
-- Route/middleware protections
-- Role and lifecycle enforcement
-- Logging configuration + event emission points
-- Migration-backed fields and role enum schema
-- Security-focused test presence and scope
+The following files are deprecated/archive-ready and now pointer-only:
+- `AUDIT_REPORT.md`
+- `IMPLEMENTATION_CHECKLIST.md`
+- `SECURITY_DOCUMENTATION.md`
 
 Where conflicts existed, this file preserved code-verified behavior and marked discrepancies.

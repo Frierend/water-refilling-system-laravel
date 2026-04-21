@@ -1,7 +1,8 @@
-# IMPLEMENTATION_CHECKLIST (Deprecated)
+# IMPLEMENTATION_CHECKLIST (Deprecated / Archive-Ready)
 
-This checklist has been consolidated into:
+This file is deprecated and archive-ready.
 
+Authoritative source:
 - **`MI_GAIL_MASTER_SOURCE_OF_TRUTH.md`**
 
-Use the master file for authoritative implementation status and verification context.
+Use the master file for verified implementation status and non-duplicated control mapping.

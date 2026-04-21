@@ -1,7 +1,8 @@
-# AUDIT_REPORT (Deprecated)
+# AUDIT_REPORT (Deprecated / Archive-Ready)
 
-This file has been consolidated into:
+This file is deprecated and archive-ready.
 
+Authoritative source:
 - **`MI_GAIL_MASTER_SOURCE_OF_TRUTH.md`**
 
-Use the master file for current audit status, criteria alignment, verified evidence pointers, and deferred items.
+Use the master file for verified audit status, criteria alignment, and evidence pointers.
