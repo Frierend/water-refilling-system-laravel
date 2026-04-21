@@ -64,6 +64,22 @@ class LoginController extends Controller
             ])->save();
         }
 
+        if ($user !== null && $user->lifecycle_locked_at !== null) {
+            Log::channel('security')->warning('security.lifecycle.locked_login_denied', [
+                'category' => 'security',
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'lock_reason' => $user->lifecycle_lock_reason,
+                'lifecycle_locked_at' => $user->lifecycle_locked_at->toDateTimeString(),
+                'ip' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
+            ]);
+
+            return back()->withErrors([
+                'email' => $user->lifecycleLockMessage(),
+            ])->onlyInput('email');
+        }
+
         if (Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']], $request->filled('remember'))) {
             $request->session()->regenerate();
             $request->session()->forget('mfa_passed_for_user_id');
@@ -84,12 +100,26 @@ class LoginController extends Controller
                     $authenticatedUser->temp_password_expires_at !== null
                     && $authenticatedUser->temp_password_expires_at->isPast()
                 ) {
+                    $authenticatedUser->applyLifecycleLock('temporary_password_expired');
+
+                    Log::channel('security')->warning('security.lifecycle.locked_temp_password_expired', [
+                        'category' => 'security',
+                        'user_id' => $authenticatedUser->id,
+                        'email' => $authenticatedUser->email,
+                        'must_change_password' => (bool) $authenticatedUser->must_change_password,
+                        'temp_password_expires_at' => $authenticatedUser->temp_password_expires_at?->toDateTimeString(),
+                        'failed_attempts' => (int) $authenticatedUser->failed_attempts,
+                        'locked_until' => $authenticatedUser->locked_until?->toDateTimeString(),
+                        'ip' => $request->ip(),
+                        'user_agent' => (string) $request->userAgent(),
+                    ]);
+
                     Auth::logout();
                     $request->session()->invalidate();
                     $request->session()->regenerateToken();
 
                     return back()->withErrors([
-                        'email' => 'Your temporary password has expired. Please contact the owner for assistance.',
+                        'email' => $authenticatedUser->lifecycleLockMessage(),
                     ])->onlyInput('email');
                 }
 
@@ -183,5 +213,18 @@ class LoginController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/');
+    }
+
+    private function temporaryPasswordExpiredMessage(): string
+    {
+        $ownerName = trim((string) config('security.owner.name', 'owner'));
+        $ownerName = $ownerName !== '' ? $ownerName : 'owner';
+
+        $ownerEmail = trim((string) config('security.owner.email', ''));
+        if ($ownerEmail !== '') {
+            return sprintf('Your temporary password has expired. Please contact %s at %s for assistance.', $ownerName, $ownerEmail);
+        }
+
+        return sprintf('Your temporary password has expired. Please contact the %s for assistance.', $ownerName);
     }
 }

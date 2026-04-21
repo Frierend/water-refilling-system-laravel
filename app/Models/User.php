@@ -19,12 +19,6 @@ class User extends Authenticatable implements MustVerifyEmail
         'password',
         'role',
         'email_verified_at',
-        'mobile_verified_at',
-        'failed_attempts',
-        'locked_until',
-        'must_change_password',
-        'password_changed_at',
-        'temp_password_expires_at',
         'mfa_secret',
         'mfa_enabled',
     ];
@@ -42,8 +36,38 @@ class User extends Authenticatable implements MustVerifyEmail
         'must_change_password' => 'boolean',
         'password_changed_at' => 'datetime',
         'temp_password_expires_at' => 'datetime',
+        'lifecycle_locked_at' => 'datetime',
         'mfa_enabled' => 'boolean',
     ];
+
+    public function applyLifecycleLock(string $reason): void
+    {
+        $this->forceFill([
+            'lifecycle_locked_at' => now(),
+            'lifecycle_lock_reason' => $reason,
+        ])->save();
+    }
+
+    public function clearLifecycleLock(): void
+    {
+        if ($this->lifecycle_locked_at === null && $this->lifecycle_lock_reason === null) {
+            return;
+        }
+
+        $this->forceFill([
+            'lifecycle_locked_at' => null,
+            'lifecycle_lock_reason' => null,
+        ])->save();
+    }
+
+    public function lifecycleLockMessage(): string
+    {
+        if ($this->isOwner()) {
+            return 'Your temporary password has expired. Recover your account using Forgot Password and the owner email path.';
+        }
+
+        return 'Your temporary password has expired. Please contact the owner for assistance.';
+    }
 
     public function isOwner()
     {
